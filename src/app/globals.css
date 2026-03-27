@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,300..900;1,300..900&display=swap');
+
+:root {
+  --bg-color: #121212;
+  --text-color: #E0E0E0;
+  --gold: #CBA153;
+  --gold-light: rgba(203, 161, 83, 0.2);
+  --card-bg: #1A1A1A;
+}
+
+body {
+  margin: 0;
+  font-family: 'Montserrat', sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-weight: 300;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Playfair Display', serif;
+  font-weight: 300;
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, #CBA153 0%, #E8D2A6 50%, #CBA153 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.luxury-card {
+  background: var(--card-bg);
+  border: 1px solid var(--gold-light);
+  transition: all 0.4s ease;
+}
+
+.luxury-card:hover {
+  border-color: var(--gold);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.btn-luxury {
+  @apply relative inline-flex items-center justify-center px-8 py-3 overflow-hidden font-medium transition-all bg-transparent border border-[var(--gold)] rounded-sm hover:bg-[var(--gold)] text-[var(--gold)] hover:text-[var(--bg-color)] text-xs tracking-[2px] uppercase;
+}
+
+.luxury-divider {
+  border: none;
+  height: 1px;
+  background: var(--gold-light);
+  margin: 80px auto;
+  width: 60px;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
