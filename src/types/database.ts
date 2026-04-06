@@ -15,7 +15,11 @@ export interface Database {
           full_name: string | null
           avatar_url: string | null
           phone: string | null
+          phone_number: string | null
           role: 'admin' | 'seller' | 'lead'
+          user_role: 'Vendedor' | 'Comprador' | 'Ambos' | 'Anunciante' | null
+          slug: string | null
+          branding_data: Json | null
           created_at: string
         }
         Insert: {
@@ -23,7 +27,11 @@ export interface Database {
           full_name?: string | null
           avatar_url?: string | null
           phone?: string | null
+          phone_number?: string | null
           role?: 'admin' | 'seller' | 'lead'
+          user_role?: 'Vendedor' | 'Comprador' | 'Ambos' | 'Anunciante' | null
+          slug?: string | null
+          branding_data?: Json | null
           created_at?: string
         }
         Update: {
@@ -31,7 +39,11 @@ export interface Database {
           full_name?: string | null
           avatar_url?: string | null
           phone?: string | null
+          phone_number?: string | null
           role?: 'admin' | 'seller' | 'lead'
+          user_role?: 'Vendedor' | 'Comprador' | 'Ambos' | 'Anunciante' | null
+          slug?: string | null
+          branding_data?: Json | null
           created_at?: string
         }
       }
@@ -45,10 +57,21 @@ export interface Database {
           price: number | null
           address_city: string | null
           address_state: string | null
-          specs: Json | null
+          features: Json | null
+          meta_tags: Json | null
           gallery: string[] | null
           main_image: string | null
           is_luxury: boolean
+          is_published: boolean | null
+          status: 'Ativo' | 'Inativo' | 'Rascunho' | 'Vendido' | 'Alugado' | 'cadastrado' | null
+          quartos: number | null
+          banheiros: number | null
+          vagas: number | null
+          area_util: number | null
+          area_total: number | null
+          intent: 'Vender' | 'Alugar' | 'Temporada' | 'Leilão' | null
+          category: string | null
+          subcategory: string | null
           created_at: string
         }
         Insert: {
@@ -60,10 +83,21 @@ export interface Database {
           price?: number | null
           address_city?: string | null
           address_state?: string | null
-          specs?: Json | null
+          features?: Json | null
+          meta_tags?: Json | null
           gallery?: string[] | null
           main_image?: string | null
           is_luxury?: boolean
+          is_published?: boolean | null
+          status?: 'Ativo' | 'Inativo' | 'Rascunho' | 'Vendido' | 'Alugado' | 'cadastrado' | null
+          quartos?: number | null
+          banheiros?: number | null
+          vagas?: number | null
+          area_util?: number | null
+          area_total?: number | null
+          intent?: 'Vender' | 'Alugar' | 'Temporada' | 'Leilão' | null
+          category?: string | null
+          subcategory?: string | null
           created_at?: string
         }
         Update: {
@@ -75,10 +109,21 @@ export interface Database {
           price?: number | null
           address_city?: string | null
           address_state?: string | null
-          specs?: Json | null
+          features?: Json | null
+          meta_tags?: Json | null
           gallery?: string[] | null
           main_image?: string | null
           is_luxury?: boolean
+          is_published?: boolean | null
+          status?: 'Ativo' | 'Inativo' | 'Rascunho' | 'Vendido' | 'Alugado' | 'cadastrado' | null
+          quartos?: number | null
+          banheiros?: number | null
+          vagas?: number | null
+          area_util?: number | null
+          area_total?: number | null
+          intent?: 'Vender' | 'Alugar' | 'Temporada' | 'Leilão' | null
+          category?: string | null
+          subcategory?: string | null
           created_at?: string
         }
       }

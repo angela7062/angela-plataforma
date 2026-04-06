@@ -1,0 +1,16 @@
+---
+description: Arquitetura de 3 camadas (diretivas, orquestração, execução) — ler AGENTS.md
+alwaysApply: true
+---
+
+# Arquitetura de 3 camadas
+
+Segue o modelo descrito em [AGENTS.md](AGENTS.md) na raiz do repositório (texto espelhado em `CLAUDE.md` e `GEMINI.md`).
+
+- **Camada 1 — Diretiva:** SOPs em Markdown em `directives/` (objetivos, entradas, ferramentas, saídas, edge cases).
+- **Camada 2 — Orquestração:** o agente roteia, lê diretivas, chama scripts na ordem certa, trata erros e pede esclarecimentos.
+- **Camada 3 — Execução:** código determinístico em Python em `execution/`; segredos em `.env`. Ficheiros regeneráveis em `.tmp/`.
+
+Antes de criar um script novo, verifica se já existe algo adequado em `execution/` conforme a diretiva.
+
+**Diretivas:** não criar diretivas novas nem sobrescrever diretivas existentes sem pedido explícito do utilizador. Atualizar diretivas com aprendizados quando o fluxo mudar (com alinhamento do utilizador quando aplicável).

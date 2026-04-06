@@ -1,6 +1,7 @@
-import PropertyPage from '@/components/landing/PropertyPage';
+import PropertyPage, { type PropertyData } from '@/components/landing/PropertyPage';
 import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase-server';
+import { mergePropertySpecs } from '@/lib/merge-property-specs';
 
 export default async function Page({ params }: { params: { slug: string } }) {
   const supabase = createClient();
@@ -13,6 +14,7 @@ export default async function Page({ params }: { params: { slug: string } }) {
       profiles(full_name, phone)
     `)
     .eq('slug', params.slug)
+    .in('status', ['Ativo', 'cadastrado'])
     .single();
 
   if (error || !property) {
@@ -27,9 +29,9 @@ export default async function Page({ params }: { params: { slug: string } }) {
     description: property.description || '',
     city: property.address_city || '',
     state: property.address_state || '',
-    specs: property.specs as any,
-    seller_name: (property.profiles as any)?.full_name || 'Anunciante',
-    seller_phone: (property.profiles as any)?.phone || '',
+    specs: mergePropertySpecs(property) as PropertyData['specs'],
+    seller_name: (property.profiles as { full_name?: string | null })?.full_name || 'Anunciante',
+    seller_phone: (property.profiles as { phone?: string | null })?.phone || '',
     main_image: property.main_image || undefined,
   };
 

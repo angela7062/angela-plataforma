@@ -67,7 +67,7 @@ export default function PropertyPage({ property }: { property: PropertyData }) {
   return (
     <div className="min-h-screen bg-[#121212] text-[#E0E0E0] font-sans pb-20">
       {/* HEADER */}
-      <header className="flex justify-between items-center px-[5%] py-6 bg-[#121212]/90 backdrop-blur-md border-b border-white/5 sticky top-0 z-50">
+      <header className="flex justify-between items-center px-[5%] py-6 bg-[#121212]/90 backdrop-blur-md border-b border-white/5 relative w-full z-50">
         <div>
           <h1 className="text-[#CBA153] font-serif text-xl tracking-widest leading-none">Imóvel Forte</h1>
           <p className="text-[9px] uppercase tracking-[4px] text-gray-500 mt-1.5">imovelforte.com.br</p>

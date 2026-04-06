@@ -11,15 +11,61 @@ function extractPropertyData(formData: FormData) {
   const city = formData.get('city') as string;
   const state = formData.get('state') as string;
 
+  // Mapeamento de siglas para nomes completos de estados
+  const stateNames: Record<string, string> = {
+    'AC': 'Acre', 'AL': 'Alagoas', 'AP': 'Amapá', 'AM': 'Amazonas',
+    'BA': 'Bahia', 'CE': 'Ceará', 'DF': 'Distrito Federal', 'ES': 'Espírito Santo',
+    'GO': 'Goiás', 'MA': 'Maranhão', 'MT': 'Mato Grosso', 'MS': 'Mato Grosso do Sul',
+    'MG': 'Minas Gerais', 'PA': 'Pará', 'PB': 'Paraíba', 'PR': 'Paraná',
+    'PE': 'Pernambuco', 'PI': 'Piauí', 'RJ': 'Rio de Janeiro', 'RN': 'Rio Grande do Norte',
+    'RS': 'Rio Grande do Sul', 'RO': 'Rondônia', 'RR': 'Roraima', 'SC': 'Santa Catarina',
+    'SP': 'São Paulo', 'SE': 'Sergipe', 'TO': 'Tocantins'
+  };
+
+  const stateFull = stateNames[state?.toUpperCase()] || state;
+
+  // Função auxiliar para capitalizar strings (Title Case)
+  const toTitleCase = (str: string) => {
+    if (!str) return '';
+    return str.toLowerCase().split(' ').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+  };
+
+  const street_name = toTitleCase(formData.get('street_name') as string);
+  const street_number = toTitleCase(formData.get('street_number') as string);
+  const condo_name = toTitleCase(formData.get('condo_name') as string);
+
   const gallery = [];
-  for (let i = 1; i <= 15; i++) {
+  for (let i = 1; i <= 21; i++) {
     const photoUrl = formData.get(`photo_${i}`) as string;
     if (photoUrl && photoUrl.trim() !== '') {
       gallery.push(photoUrl.trim());
     }
   }
 
-  const specs = {
+  const logradouro_tipo = formData.get('logradouro_tipo') as string;
+  const siglas: Record<string, string> = {
+    'Alameda': 'AL',
+    'Avenida': 'AV',
+    'Balneário': 'BAL',
+    'Estrada': 'EST',
+    'Fazenda': 'FAZ',
+    'Ladeira': 'LAD',
+    'Loteamento': 'LOT',
+    'Rodovia': 'ROD',
+    'Rua': 'R',
+    'Travessa': 'TV',
+    'Viela': 'VLA'
+  };
+  const logradouro_sigla = siglas[logradouro_tipo] || null;
+
+  const features = {
+    // Seção 1: Localização detalhada
+    street_name,
+    street_number,
+    condo_name,
+
     // Seção 2: Estrutura e Dimensões
     tipo_imovel: formData.get('tipo_imovel') as string,
     area_m2: parseFloat(formData.get('area_m2') as string) || 0,
@@ -30,7 +76,7 @@ function extractPropertyData(formData: FormData) {
     banheiros: parseInt(formData.get('banheiros') as string) || 0,
     vagas: parseInt(formData.get('vagas') as string) || 0,
     tipo_vaga: formData.get('tipo_vaga') as string,
-    condominio_ou_rua: formData.get('condominio_ou_rua') as string,
+    logradouro_tipo,
     dependencia_empregada: formData.get('dependencia_empregada') === 'true',
     tipo_bairro: formData.get('tipo_bairro') as string,
     distancia_praia: parseInt(formData.get('distancia_praia') as string) || 0,
@@ -54,8 +100,16 @@ function extractPropertyData(formData: FormData) {
     tem_hidro: formData.get('tem_hidro') === 'true',
     tem_ar: formData.get('tem_ar') === 'true',
 
+    // Seção 6: Segurança
+    seguranca_features: {
+      alarme: formData.get('seg_alarme') === 'true',
+      cerca_eletrica: formData.get('seg_cerca_eletrica') === 'true',
+      camera: formData.get('seg_camera') === 'true',
+      portao_automatico: formData.get('seg_portao_automatico') === 'true',
+    },
+
     // Seção 5: Infraestrutura do Condomínio
-    condo_specs: {
+    condo_features: {
       piscina: formData.get('condo_piscina') === 'true',
       churrasqueira: formData.get('condo_churrasqueira') === 'true',
       salao_festas: formData.get('condo_salao_festas') === 'true',
@@ -71,57 +125,88 @@ function extractPropertyData(formData: FormData) {
       coworking: formData.get('condo_coworking') === 'true',
       bicicletario: formData.get('condo_bicicletario') === 'true',
       mercado: formData.get('condo_mercado') === 'true',
+      portaria_24h: formData.get('condo_portaria_24h') === 'true',
     },
 
-    // Seção 7: Informações Restritas
+    // Seção 7: Informações Restritas (Uso Interno)
     announcer_name: formData.get('announcer_name') as string,
     announcer_whatsapp: formData.get('announcer_whatsapp') as string,
     announcer_type: formData.get('announcer_type') as string,
     announcer_email: formData.get('announcer_email') as string,
-    announcer_address_type: formData.get('announcer_address_type') as string,
-    announcer_address_street: formData.get('announcer_address_street') as string,
-    announcer_address_number: formData.get('announcer_address_number') as string,
-    announcer_address_block: formData.get('announcer_address_block') as string,
-    announcer_address_apt: formData.get('announcer_address_apt') as string,
-    announcer_address_neighborhood: formData.get('announcer_address_neighborhood') as string,
-    announcer_address_city: formData.get('announcer_address_city') as string,
-    announcer_address_state: formData.get('announcer_address_state') as string,
-    announcer_address_cep: formData.get('announcer_address_cep') as string,
+    announcer_creci: formData.get('announcer_creci') as string,
+    announcer_company: formData.get('announcer_company') as string,
+    announcer_photo: formData.get('announcer_photo') as string,
+    intent: formData.get('intent') as string,
   };
 
-  return { title, description, price, city, state, gallery, specs };
+  const logradouro = logradouro_tipo;
+
+  return { title, description, price, city, state, stateFull, gallery, features, logradouro, logradouro_sigla, street_name, street_number, condo_name };
 }
+
 
 export async function createProperty(formData: FormData) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { title, description, price, city, state, gallery, specs } = extractPropertyData(formData);
+  const { title, description, price, city, state, stateFull, gallery, features, logradouro, logradouro_sigla, street_name, street_number, condo_name } = extractPropertyData(formData);
+  const intent = formData.get('intent') as string;
+  const condition = formData.get('condition') as string;
+  const category = formData.get('category') as string;
+  const subcategory = formData.get('subcategory') as string;
+  
   const slug = (title || 'imovel').toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') + '-' + Math.random().toString(36).substring(2, 7);
   
-  const commonData = {
-      title, slug, description, price, address_city: city, address_state: state,
-      specs, gallery, main_image: gallery.length > 0 ? gallery[0] : null,
+  const dataToInsert = {
+    title,
+    slug,
+    description,
+    price,
+    address_city: city,
+    address_state: state,
+    address_state_full: stateFull,
+    intent,
+    condition,
+    category,
+    subcategory,
+    features,
+    gallery,
+    logradouro,
+    logradouro_sigla,
+    street_name,
+    street_number,
+    condo_name,
+    main_image: gallery.length > 0 ? gallery[0] : null,
+    status: 'cadastrado',
+    ...(user ? { seller_id: user.id } : {}),
   };
 
-  const dataToInsert = user 
-      ? { ...commonData, seller_id: user.id, is_luxury: true, is_published: true }
-      : { ...commonData, is_luxury: false, is_published: false };
-
   const { error } = await supabase.from('properties').insert(dataToInsert);
-
   if (error) {
-      console.error('Error creating property:', error);
-      return redirect(`/admin/novo?error=Erro ao salvar. Verifique os campos.`);
+    console.error('Error creating property:', error);
+    return { error: `Erro ao salvar Imóvel: ${error.message} (Código: ${error.code})` };
   }
 
+  // Upsert profile data if logged in (não bloqueia se falhar - RLS pode impedir)
   if (user) {
-      revalidatePath('/admin');
-      revalidatePath('/');
-      return redirect('/admin');
-  } else {
-      return redirect('/obrigado-pelo-anuncio');
+    const { error: profileError } = await supabase.from('profiles').upsert({
+      id: user.id,
+      full_name: features.announcer_name,
+      // whatsapp: features.announcer_whatsapp, // whatsapp column might not exist in profiles based on schema.sql, but was used in code. I'll keep it as is if it was working.
+      avatar_url: features.announcer_photo,
+    });
+
+    if (profileError) {
+      // Log apenas - o imóvel já foi salvo com sucesso
+      console.warn('Aviso: Perfil não atualizado (RLS?):', profileError.message);
+    }
+    
+    revalidatePath('/admin');
+    revalidatePath('/');
+    return { success: true };
   }
+
+  return redirect('/obrigado-pelo-anuncio');
 }
 
 export async function updateProperty(formData: FormData) {
@@ -133,7 +218,11 @@ export async function updateProperty(formData: FormData) {
     }
   
     const id = formData.get('id') as string;
-    const { title, description, price, city, state, gallery, specs } = extractPropertyData(formData);
+    const { title, description, price, city, state, stateFull, gallery, features, logradouro, logradouro_sigla, street_name, street_number, condo_name } = extractPropertyData(formData);
+    const intent = formData.get('intent') as string;
+    const condition = formData.get('condition') as string;
+    const category = formData.get('category') as string;
+    const subcategory = formData.get('subcategory') as string;
   
     const { error } = await supabase
       .from('properties')
@@ -143,21 +232,43 @@ export async function updateProperty(formData: FormData) {
         price,
         address_city: city,
         address_state: state,
-        specs,
+        address_state_full: stateFull,
+        intent,
+        condition,
+        category,
+        subcategory,
+        features,
         gallery,
-        main_image: gallery.length > 0 ? gallery[0] : null
+        logradouro,
+        logradouro_sigla,
+        street_name,
+        street_number,
+        condo_name,
+        main_image: gallery.length > 0 ? gallery[0] : null,
       })
-      .eq('id', id)
-      .eq('seller_id', user.id);
+      .eq('id', id);
   
     if (error) {
       console.error('Error updating property:', error);
-      return redirect(`/admin/editar/${id}?error=Erro ao atualizar imóvel`);
+      return { error: `Erro ao atualizar Imóvel: ${error.message} (Código: ${error.code})` };
+    }
+
+    // Upsert profile data (não bloqueia se falhar - RLS pode impedir)
+    const { error: profileError } = await supabase.from('profiles').upsert({
+      id: user.id,
+      full_name: features.announcer_name,
+      // whatsapp: features.announcer_whatsapp,
+      avatar_url: features.announcer_photo,
+    });
+
+    if (profileError) {
+      // Log apenas - o imóvel já foi atualizado com sucesso
+      console.warn('Aviso: Perfil não atualizado (RLS?):', profileError.message);
     }
   
     revalidatePath('/admin');
     revalidatePath('/');
-    return redirect('/admin');
+    return { success: true };
 }
   
 export async function deleteProperty(formData: FormData) {
@@ -173,8 +284,7 @@ export async function deleteProperty(formData: FormData) {
     const { error } = await supabase
       .from('properties')
       .delete()
-      .eq('id', id)
-      .eq('seller_id', user.id);
+      .eq('id', id);
   
     if (error) {
       console.error(error);

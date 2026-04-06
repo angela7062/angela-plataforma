@@ -16,7 +16,7 @@ export default async function EditPropertyPage({ params }: { params: { id: strin
     .eq('id', params.id)
     .single()
 
-  if (!property || property.seller_id !== user.id) {
+  if (!property) {
     redirect('/admin')
   }
 

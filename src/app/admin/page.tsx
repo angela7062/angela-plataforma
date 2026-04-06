@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Home, LogOut } from 'lucide-react'
+import { Plus, Home } from 'lucide-react'
+import Header from '@/components/layout/Header'
 
 export default async function AdminDashboard() {
   const supabase = createClient()
@@ -11,27 +12,16 @@ export default async function AdminDashboard() {
     redirect('/login')
   }
 
-  // Buscar propriedades do usuário
+  // Buscar propriedades do usuário para a lista
   const { data: properties } = await supabase
     .from('properties')
     .select('*')
     .eq('seller_id', user.id)
+    .order('created_at', { ascending: false })
 
   return (
     <div className="min-h-screen bg-[#121212] text-[#E0E0E0] font-sans">
-      <header className="flex justify-between items-center px-[5%] py-6 bg-[#1A1A1A] border-b border-white/5">
-        <div>
-          <h1 className="text-[#CBA153] font-serif text-xl tracking-widest leading-none">Imóvel Forte</h1>
-          <p className="text-[9px] uppercase tracking-[4px] text-gray-500 mt-1.5">Painel do Anunciante</p>
-        </div>
-        <div className="flex gap-4">
-          <form action="/auth/signout" method="post">
-            <button className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-xs uppercase tracking-widest">
-              <LogOut size={16} /> Sair
-            </button>
-          </form>
-        </div>
-      </header>
+      <Header />
 
       <main className="max-w-6xl mx-auto px-6 py-12">
         <div className="flex justify-between items-end mb-10">
@@ -39,9 +29,7 @@ export default async function AdminDashboard() {
             <h2 className="text-[#CBA153] text-3xl font-serif">Meus Imóveis</h2>
             <p className="text-gray-500 text-sm mt-2">Gerencie seus anúncios e visualizar leads</p>
           </div>
-          <Link href="/admin/novo" className="btn-luxury flex items-center gap-2">
-            <Plus size={16} /> Novo Anúncio
-          </Link>
+
         </div>
 
         {properties && properties.length > 0 ? (

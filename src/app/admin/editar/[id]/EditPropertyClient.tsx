@@ -10,9 +10,9 @@ interface PropertyFormProps {
 }
 
 export default function EditPropertyClient({ property }: PropertyFormProps) {
-  const sp = property.specs || {}
+  const sp = property.features || {}
   const gal = property.gallery || []
-  const adm = sp.admin_fields || []
+  const adm = sp.admin_features || []
 
   // Estre para cálculo de comissão
   const [salePrice, setSalePrice] = useState(property.price || 0)
@@ -104,6 +104,7 @@ export default function EditPropertyClient({ property }: PropertyFormProps) {
                   <option value="Sobrado">Sobrado</option>
                   <option value="Apartamento">Apartamento</option>
                   <option value="Cobertura">Cobertura</option>
+                  <option value="Leilão">Leilão</option>
                 </select>
               </div>
               
@@ -190,20 +191,6 @@ export default function EditPropertyClient({ property }: PropertyFormProps) {
                 <input name="distancia_comercio" type="number" defaultValue={sp.distancia_comercio || ''} className={inputClass} placeholder="Ex: 200" />
               </div>
             </div>
-
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-white/5">
-              {[
-                { name: 'tem_area_gourmet', label: 'Área Gourmet' },
-                { name: 'tem_varanda', label: 'Varanda' },
-                { name: 'tem_sacada', label: 'Sacada' },
-                { name: 'tem_portao_automatico', label: 'Portão Automático' },
-              ].map(item => (
-                <label key={item.name} className="flex items-center gap-4 cursor-pointer p-4 border border-white/10 rounded-sm hover:border-[#CBA153]/50 transition-colors bg-[#1A1A1A]">
-                  <input type="checkbox" name={item.name} value="true" defaultChecked={sp[item.name]} className="w-[16.5px] h-[16.5px] accent-[#CBA153]" />
-                  <span className={labelClass}>{item.label}</span>
-                </label>
-              ))}
-            </div>
           </section>
 
           {/* 3. CONDIÇÃO E DOCUMENTAÇÃO */}
@@ -263,15 +250,18 @@ export default function EditPropertyClient({ property }: PropertyFormProps) {
           <section className="luxury-card p-8 rounded-xl flex flex-col gap-6">
             <h3 className="text-[#CBA153] text-lg font-serif border-b border-[#CBA153]/20 pb-3">4. Lazer & Comodidades</h3>
             
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
                 { name: 'tem_piscina', label: 'Piscina' },
                 { name: 'tem_edicula', label: 'Edícula' },
                 { name: 'tem_churrasqueira', label: 'Churrasqueira' },
                 { name: 'tem_hidro', label: 'Hidromassagem' },
-                { name: 'tem_ar', label: 'Ar Condicionado' }
-              ].map(item => (
-                <label key={item.name} className="flex flex-col items-center gap-3 cursor-pointer p-6 border border-white/10 rounded-sm hover:border-[#CBA153]/50 transition-colors bg-[#1A1A1A]">
+                { name: 'tem_ar', label: 'Ar Condicionado' },
+                { name: 'tem_area_gourmet', label: 'ÁREA GOURMET' },
+                { name: 'tem_varanda', label: 'VARANDA' },
+                { name: 'tem_sacada', label: 'SACADA' }
+              ].map((item, idx) => (
+                <label key={`${item.name}_${idx}`} className="flex flex-col items-center gap-3 cursor-pointer p-6 border border-white/10 rounded-sm hover:border-[#CBA153]/50 transition-colors bg-[#1A1A1A]">
                   <input type="checkbox" name={item.name} value="true" defaultChecked={sp[item.name]} className="w-[19.5px] h-[19.5px] accent-[#CBA153]" />
                   <span className={labelClass}>{item.label}</span>
                 </label>
@@ -301,6 +291,7 @@ export default function EditPropertyClient({ property }: PropertyFormProps) {
                 { id: 'coworking', label: 'Coworking' },
                 { id: 'bicicletario', label: 'Bicicletário' },
                 { id: 'mercado', label: 'Mini Mercado' },
+                { id: 'portaria_24h', label: 'PORTARIA 24H' },
                 { id: 'solarium', label: 'Solarium' },
                 { id: 'redario', label: 'Redário' },
                 { id: 'beach_tennis', label: 'Beach Tennis' },
@@ -321,10 +312,36 @@ export default function EditPropertyClient({ property }: PropertyFormProps) {
             </div>
           </section>
 
-          {/* 6. GALERIA DE FOTOS */}
+          {/* 6. SEGURANÇA */}
+          <section className="luxury-card p-8 rounded-xl flex flex-col gap-6">
+            <h3 className="text-[#CBA153] text-lg font-serif border-b border-[#CBA153]/20 pb-3">6. Segurança</h3>
+            <p className="text-sm text-gray-500 uppercase tracking-widest font-medium">Selecione os itens disponíveis</p>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { id: 'alarme', label: 'ALARME' },
+                { id: 'cerca_eletrica', label: 'CERCA ELÉTRICA' },
+                { id: 'camera', label: 'CAMERA' },
+                { id: 'portao_automatico', label: 'PORTÃO AUTOMÁTICO' },
+              ].map((item) => (
+                <label key={item.id} className="flex items-center gap-3 cursor-pointer p-4 border border-white/5 rounded-sm hover:border-[#CBA153]/30 transition-colors bg-[#1A1A1A]">
+                  <input 
+                    type="checkbox" 
+                    name={`seg_${item.id}`} 
+                    value="true" 
+                    defaultChecked={sp.seguranca_specs?.[item.id]} 
+                    className="w-[16.5px] h-[16.5px] accent-[#CBA153]" 
+                  />
+                  <span className={labelClass}>{item.label}</span>
+                </label>
+              ))}
+            </div>
+          </section>
+
+          {/* 7. GALERIA DE FOTOS */}
           <section className="luxury-card p-8 rounded-xl flex flex-col gap-6">
             <div className="flex justify-between items-end border-b border-[#CBA153]/20 pb-3">
-              <h3 className="text-[#CBA153] text-lg font-serif border-b border-[#CBA153]/20 pb-3">6. Galeria de Fotos (Máx 15)</h3>
+              <h3 className="text-[#CBA153] text-lg font-serif border-b border-[#CBA153]/20 pb-3">7. Galeria de Fotos (Máx 15)</h3>
               <p className="text-[10px] text-gray-500 uppercase tracking-widest font-medium">Apenas URLs (Fase Layout)</p>
             </div>
             
@@ -338,10 +355,10 @@ export default function EditPropertyClient({ property }: PropertyFormProps) {
             </div>
           </section>
 
-          {/* 7. INFORMAÇÕES RESTRITAS (ADMIN) */}
+          {/* 8. INFORMAÇÕES RESTRITAS (ADMIN) */}
           <section className="luxury-card p-8 rounded-xl flex flex-col gap-8 border-l-4 border-l-[#CBA153]">
             <div className="flex justify-between items-end border-b border-[#CBA153]/40 pb-3">
-              <h3 className="text-[#CBA153] text-lg font-serif font-bold">7. Informações Restritas (Uso Interno)</h3>
+              <h3 className="text-[#CBA153] text-lg font-serif font-bold">8. Informações Restritas (Uso Interno)</h3>
               <p className="text-xs text-red-400 uppercase tracking-widest font-bold">Invisível para Visitantes</p>
             </div>
 
@@ -497,7 +514,7 @@ export default function EditPropertyClient({ property }: PropertyFormProps) {
           </section>
 
           {/* SUBMIT */}
-          <div className="sticky bottom-6 mt-12 px-8 py-3 bg-[#1A1A1A] border-2 border-[#CBA153] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex justify-between items-center z-20 backdrop-blur-md">
+          <div className="mt-12 px-8 py-3 bg-[#1A1A1A] border-2 border-[#CBA153] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex justify-between items-center backdrop-blur-md">
             <p className="text-sm text-gray-400 font-medium tracking-wide italic">Reveja todas as informações restritas antes de salvar o banco.</p>
             <button type="submit" className="bg-[#CBA153] text-[#121212] px-16 py-2 rounded-sm font-bold uppercase tracking-[3px] hover:bg-white transition-all text-sm shadow-xl">
               Salvar Alterações
