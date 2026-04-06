@@ -177,7 +177,7 @@ export async function createProperty(formData: FormData) {
     street_number,
     condo_name,
     main_image: gallery.length > 0 ? gallery[0] : null,
-    status: 'cadastrado',
+    status: 'ativo',
     ...(user ? { seller_id: user.id } : {}),
   };
 
@@ -294,4 +294,37 @@ export async function deleteProperty(formData: FormData) {
     revalidatePath('/admin');
     revalidatePath('/');
     return redirect('/admin');
+}
+
+export async function updatePropertyStatus(formData: FormData) {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return redirect('/login');
+    }
+
+    const id = formData.get('id') as string;
+    const status = formData.get('status') as string;
+    const allowedStatus = new Set(['Ativo', 'Inativo', 'Vendido', 'Alugado']);
+
+    if (!id || !allowedStatus.has(status)) {
+      return { error: 'Dados inválidos para atualização de status.' };
+    }
+
+    const { error } = await supabase
+      .from('properties')
+      .update({ status })
+      .eq('id', id)
+      .eq('seller_id', user.id);
+
+    if (error) {
+      console.error('Error updating property status:', error);
+      return { error: `Erro ao atualizar status: ${error.message} (Código: ${error.code})` };
+    }
+
+    revalidatePath('/admin');
+    revalidatePath('/imoveis');
+    revalidatePath('/');
+    return { success: true };
 }

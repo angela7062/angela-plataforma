@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Home } from 'lucide-react'
+import { Home, X } from 'lucide-react'
 import Header from '@/components/layout/Header'
+import PropertyStatusControls from '@/components/admin/PropertyStatusControls'
 
 export default async function AdminDashboard() {
   const supabase = createClient()
@@ -35,8 +36,8 @@ export default async function AdminDashboard() {
         {properties && properties.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {properties.map((prop) => (
-              <div key={prop.id} className="luxury-card rounded-xl overflow-hidden group">
-                <div className="h-48 bg-[#1A1A1A] relative">
+              <div key={prop.id} className="luxury-card rounded-xl overflow-hidden group h-[278px] flex flex-col">
+                <div className="h-36 bg-[#1A1A1A] relative shrink-0">
                   {prop.main_image ? (
                     <img src={prop.main_image} alt={prop.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                   ) : (
@@ -44,18 +45,24 @@ export default async function AdminDashboard() {
                       <Home className="text-gray-600" size={32} />
                     </div>
                   )}
+                  <button
+                    type="button"
+                    aria-label="Excluir imóvel"
+                    title="Excluir imóvel"
+                    className="absolute top-2 right-2 text-gray-400 hover:text-[#CBA153] hover:font-bold transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
-                <div className="p-6">
-                  <h3 className="text-[#CBA153] text-lg font-serif mb-1 truncate">{prop.title}</h3>
-                  <p className="text-gray-400 text-xs mb-4 uppercase tracking-widest">{prop.address_city} - {prop.address_state}</p>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-white">
+                <div className="p-3 flex-1 flex flex-col justify-between">
+                  <div className="flex items-start justify-between gap-3 mb-0.5">
+                    <h3 className="text-[#CBA153] text-[15px] font-serif truncate">{prop.title}</h3>
+                    <div className="text-white text-base font-serif shrink-0 text-right">
                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(prop.price || 0)}
-                    </span>
-                    <Link href={`/admin/editar/${prop.id}`} className="text-[#CBA153] hover:underline uppercase text-[10px] tracking-widest">
-                      Editar
-                    </Link>
+                    </div>
                   </div>
+                  <p className="text-gray-400 text-[10px] mb-1 uppercase tracking-widest truncate">{prop.address_city} - {prop.address_state}</p>
+                  <PropertyStatusControls propertyId={prop.id} initialStatus={prop.status} />
                 </div>
               </div>
             ))}
