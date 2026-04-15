@@ -50,8 +50,27 @@ export default function Header() {
     router.push(`/imoveis?intent=${newIntent}`);
   }
 
+  const handleClearAllFilters = () => {
+    setSearch('');
+    setFilters({
+      dormitorios: '',
+      suites: '',
+      banheiros: '',
+      vagas: '',
+      minPrice: '',
+      maxPrice: '',
+      tipos: [],
+      localizacao: [],
+      diferenciais: []
+    });
+    setIntent('');
+    setActiveMenu(null);
+    setIsDetailsVisible(false);
+    router.push('/imoveis');
+  };
+
   // Estados dos Filtros
-  const [intent, setIntent] = useState('Vender')
+  const [intent, setIntent] = useState('')
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({
     dormitorios: '',
@@ -78,7 +97,11 @@ export default function Header() {
 
   const handleApply = (newIntent?: string, newSearch?: string) => {
     const params = new URLSearchParams()
-    params.set('intent', newIntent || intent)
+    const finalIntent = newIntent !== undefined ? newIntent : intent;
+    if (finalIntent) {
+        params.set('intent', finalIntent)
+    }
+
     const searchQuery = newSearch !== undefined ? newSearch : search
     if (searchQuery) params.set('q', searchQuery)
     
@@ -367,11 +390,6 @@ export default function Header() {
                 </div>
               </div>
 
-              <Link href="/imoveis?intent=Vender" 
-                className="text-gray-400 hover:text-[#CBA153] text-[11px] font-bold uppercase tracking-[0.2em] transition-colors"
-              >
-                Vender
-              </Link>
             </div>
 
             {/* Lado Direito */}
@@ -420,19 +438,13 @@ export default function Header() {
                         <li><Link onClick={() => setActiveMenu(null)} href="/profissionais?categoria=pedreiros" className="hover:text-[#CBA153] transition-colors">Pedreiros</Link></li>
                         <li><Link onClick={() => setActiveMenu(null)} href="/profissionais?categoria=pintores" className="hover:text-[#CBA153] transition-colors">Pintores</Link></li>
                         <li><Link onClick={() => setActiveMenu(null)} href="/profissionais?categoria=encanadores" className="hover:text-[#CBA153] transition-colors">Encanadores</Link></li>
+                        <li><Link onClick={() => setActiveMenu(null)} href="/profissionais?categoria=eletricistas" className="hover:text-[#CBA153] transition-colors">Eletricistas</Link></li>
                         <li><Link onClick={() => setActiveMenu(null)} href="/profissionais?categoria=manutencao" className="hover:text-[#CBA153] transition-colors">Todos</Link></li>
                       </ul>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="w-px h-6 bg-white/10 mx-2" />
-              <button 
-                onClick={() => handleApply()}
-                className="bg-[#111111] text-gray-400 hover:text-[#CBA153] hover:bg-[#1A1A1A] transition-all p-2.5 rounded-sm border border-white/5 hover:border-[#CBA153]/30 group shadow-xl"
-              >
-                <Search size={18} className="group-hover:scale-110 transition-transform" />
-              </button>
             </div>
           </nav>
         </div>
@@ -449,15 +461,21 @@ export default function Header() {
                 value={intent} 
                 onChange={(e) => {
                   const val = e.target.value;
-                  setIntent(val);
-                  handleApply(val);
+                  if (val === 'limpar') {
+                    handleClearAllFilters();
+                  } else {
+                    setIntent(val);
+                    handleApply(val);
+                  }
                 }} 
                 className="w-full bg-transparent text-[#CBA153] text-[11px] font-bold tracking-widest h-10 px-4 rounded-sm outline-none cursor-pointer appearance-none pr-10 border border-white/5"
               >
+                <option value="">Escolha</option>
                 <option value="Vender">Comprar</option>
                 <option value="Alugar">Alugar</option>
                 <option value="Temporada">Temporada</option>
                 <option value="Leilão">Leilão</option>
+                <option value="limpar">Limpar Filtro</option>
               </select>
               <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#CBA153] pointer-events-none" />
             </div>
@@ -674,7 +692,6 @@ export default function Header() {
           <Link href="/imoveis?intent=Vender" className="text-gray-400 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Comprar</Link>
           <Link href="/imoveis?intent=Alugar" className="text-gray-400 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Alugar</Link>
           <Link href="/imoveis?intent=Temporada" className="text-gray-400 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Temporada</Link>
-          <Link href="/imoveis?intent=Vender" className="text-gray-400 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Vender</Link>
           <Link href="/profissionais" className="text-gray-400 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Profissionais</Link>
           <button className="text-gray-400 ml-auto"><Search size={16} /></button>
         </div>
@@ -682,4 +699,3 @@ export default function Header() {
     </header>
   )
 }
-

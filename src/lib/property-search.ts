@@ -19,44 +19,61 @@ export interface PropertyFilters {
 }
 
 /**
+ * Coleta e decodifica os parâmetros de busca da URL, convertendo-os em um objeto de filtros.
+ */
+export function collectFilters(searchParams: URLSearchParams): PropertyFilters {
+  const out: any = {};
+
+  const decodeTerm = (term: string | null): string | undefined => {
+    if (!term) return undefined;
+    const cleanPlus = term.replace(/\+/g, ' ').trim();
+    try {
+      return decodeURIComponent(cleanPlus).trim();
+    } catch (e) {
+      return cleanPlus; // Retorna o termo como está se a decodificação falhar
+    }
+  };
+
+  out.intent = decodeTerm(searchParams.get('intent'));
+  out.category = decodeTerm(searchParams.get('category'));
+  out.subcategory = decodeTerm(searchParams.get('subcategory'));
+  out.status = decodeTerm(searchParams.get('status'));
+  out.q = decodeTerm(searchParams.get('q')) || decodeTerm(searchParams.get('bairro'));
+
+  const parseNum = (v: string | null) => v ? parseFloat(v) : undefined;
+  out.min_price = parseNum(searchParams.get('min_price'));
+  out.max_price = parseNum(searchParams.get('max_price'));
+  out.min_area = parseNum(searchParams.get('min_area'));
+  out.max_area = parseNum(searchParams.get('max_area'));
+  
+  const vagas = parseNum(searchParams.get('vagas'));
+  if (vagas !== undefined) out.vagas = Math.floor(vagas);
+
+  return out;
+}
+
+/**
  * Implementa a lógica de filtragem dinâmica e fluida conforme o Prompt Mestre.
- * Garante que múltiplos filtros funcionem simultaneamente sem conflitos.
- * Trata parâmetros nulos automaticamente (cláusula WHERE ignora filtros não selecionados).
  */
 export function applyPropertyFilters(
   query: PostgrestFilterBuilder<Database['public'], PropertyRow, PropertyRow[]>,
   filters: PropertyFilters
 ) {
-  console.log('--- APLICANDO FILTROS ---');
-  console.log('Filtros recebidos:', JSON.stringify(filters));
-
-  // 1. Filtro de Status (Padrão: Ativo)
   if (filters.status) {
     query = query.ilike('status', filters.status)
   }
-  // Removido temporariamente para diagnóstico ou mantido se quiser ser menos restritivo
-  /* 
-  else {
-    query = query.or('status.ilike.Ativo,status.ilike.cadastrado')
-  } 
-  */
 
-  // 2. Filtros Exatos (Tipo de Imóvel, Finalidade, Categoria)
   if (filters.intent) {
-    console.log('Filtrando por Intent:', filters.intent);
     query = query.ilike('intent', filters.intent)
   }
   if (filters.category) {
     const categoryToQuery = filters.category.toLowerCase() === 'casa' ? 'Casas' : filters.category;
-    console.log('Filtrando por Categoria:', categoryToQuery);
     query = query.ilike('category', categoryToQuery)
   }
   if (filters.subcategory) {
-    console.log('Filtrando por Subcategoria:', filters.subcategory);
     query = query.ilike('subcategory', filters.subcategory)
   }
 
-  // 3. Filtros de Range (Preço, Área, Vagas)
   if (filters.min_price !== undefined && filters.min_price !== null && !isNaN(filters.min_price)) {
     query = query.gte('price', filters.min_price)
   }
@@ -64,7 +81,6 @@ export function applyPropertyFilters(
     query = query.lte('price', filters.max_price)
   }
 
-  // Vagas e Área estão dentro do JSONB 'features'
   if (filters.vagas !== undefined && filters.vagas !== null && !isNaN(filters.vagas)) {
     query = query.filter('features->vagas', 'gte', filters.vagas)
   }
@@ -76,16 +92,11 @@ export function applyPropertyFilters(
     query = query.filter('features->area_m2', 'lte', filters.max_area)
   }
 
-  // 4. Flexibilidade: Filtros em JSONB (features)
-  // Permite filtrar por atributos dinâmicos sem alterar o schema
   if (filters.features && Object.keys(filters.features).length > 0) {
     query = query.contains('features', filters.features)
   }
 
-  // 5. Busca Profissional (PostgreSQL Full Text Search)
-  // Substitui múltiplos ILIKE/OR por busca indexada em tsvector para performance e precisão
   if (filters.q) {
-    console.log('Aplicando busca profissional PostgreSQL para:', filters.q);
     query = query.textSearch('search_text', filters.q, {
       type: 'plain',
       config: 'portuguese'

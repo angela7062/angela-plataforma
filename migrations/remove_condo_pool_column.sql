@@ -1,0 +1,1 @@
+ALTER TABLE public.properties DROP COLUMN IF EXISTS condo_has_pool;

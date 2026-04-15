@@ -1,279 +1,153 @@
-import React from 'react';
-import { Share2, Phone, Bookmark, UserPlus, Globe, Check, Image as ImageIcon } from 'lucide-react';
+/* eslint-disable @next/next/no-img-element */
+'use client';
 
-export interface PropertyAdminField {
-  name: string;
-  value: string;
-  isPublic: boolean;
-}
+import React, { useState } from 'react';
+import { formatPrice } from '@/lib/format-price';
+import { WhatsAppIcon, EyeIcon } from '@/components/Icons'; // Importado EyeIcon
+import PhotoAlbum from "react-photo-album";
 
-interface PropertySpecs {
-  tipo_imovel?: string;
-  dormitorios?: number;
-  suites?: number;
-  vagas?: number;
-  tipo_vaga?: string;
-  banheiros?: number;
-  area_m2?: number;
-  area_terreno?: number;
-  tempo_construcao_anos?: number;
-  documentacao?: string;
-  conservacao?: string;
-  mobiliada?: string;
-  reformada?: boolean;
-  casa_nova?: boolean;
-  tem_edicula?: boolean;
-  tem_piscina?: boolean;
-  tem_hidro?: boolean;
-  tem_ar?: boolean;
-  admin_fields?: PropertyAdminField[];
-}
-
-export interface PropertyData {
+// Tipagem dos dados do imóvel que o componente espera
+export type PropertyData = {
   title: string;
-  subtitle?: string;
+  subtitle: string;
   price: number;
   description: string;
   city: string;
   state: string;
-  specs: PropertySpecs;
+  specs: { [key: string]: string | number };
   seller_name: string;
   seller_phone: string;
   main_image?: string;
-  gallery?: string[];
+  image_gallery?: string[];
+  property_type: string;
+  status: 'cadastrado' | 'Ativo' | 'Inativo' | 'vendido' | 'alugado';
+  finality: 'Venda' | 'Aluguel';
+};
+
+interface PropertyPageProps {
+  property: PropertyData;
 }
 
-export default function PropertyPage({ property }: { property: PropertyData }) {
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(price);
+const DetailItem: React.FC<{ label: string; value: string | number }> = ({ label, value }) => (
+  <div className="border-b border-white/10 py-3">
+    <p className="text-sm text-gray-400">{label}</p>
+    <p className="text-base font-medium text-gray-200">{value}</p>
+  </div>
+);
+
+export default function PropertyPage({ property }: PropertyPageProps) {
+  const { 
+    title, subtitle, price, description, specs, 
+    seller_name, seller_phone, main_image, image_gallery,
+    status
+  } = property;
+
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [photoIndex, setPhotoIndex] = useState(0);
+
+  const allImages = [main_image, ...(image_gallery || [])].filter(Boolean) as string[];
+  const photos = allImages.map(src => ({ src, width: 4, height: 3 }));
+
+  const openLightbox = (index: number) => {
+    setPhotoIndex(index);
+    setLightboxOpen(true);
   };
 
-  const sp = property.specs;
-  const publicAdminFields = (sp.admin_fields || []).filter(f => f.isPublic && f.name && f.value);
-
-  // Comodidades array
-  const amenities = [];
-  if (sp.tem_piscina) amenities.push("Piscina");
-  if (sp.tem_ar) amenities.push("Ar Condicionado");
-  if (sp.tem_hidro) amenities.push("Hidromassagem");
-  if (sp.tem_edicula) amenities.push("Edícula");
-  if (sp.mobiliada) amenities.push(`Mobília: ${sp.mobiliada}`);
-  if (sp.reformada) amenities.push("Reformada Recentemente");
-  if (sp.casa_nova) amenities.push("Casa Nova / Em Planta");
+  const formattedPrice = price > 0 ? formatPrice(price) : 'Consulte';
+  const whatsappMessage = `Olá, ${seller_name}. Tenho interesse no imóvel \"${title}\" que vi no seu site. Podemos conversar?`;
+  const whatsappUrl = `https://api.whatsapp.com/send?phone=55${seller_phone.replace(/\D/g, '')}&text=${encodeURIComponent(whatsappMessage)}`;
 
   return (
-    <div className="min-h-screen bg-[#121212] text-[#E0E0E0] font-sans pb-20">
-      {/* HEADER */}
-      <header className="flex justify-between items-center px-[5%] py-6 bg-[#121212]/90 backdrop-blur-md border-b border-white/5 relative w-full z-50">
-        <div>
-          <h1 className="text-[#CBA153] font-serif text-xl tracking-widest leading-none">Imóvel Forte</h1>
-          <p className="text-[9px] uppercase tracking-[4px] text-gray-500 mt-1.5">imovelforte.com.br</p>
-        </div>
-        <div className="flex items-center gap-5">
-          <button className="w-[38px] h-[38px] border border-[#CBA153] text-[#CBA153] flex items-center justify-center rounded-sm hover:bg-[#CBA153] hover:text-[#121212] transition-colors">
-            <Share2 size={16} strokeWidth={1.5} />
-          </button>
-          <button className="px-6 py-3 bg-[#CBA153] text-[#121212] text-[10px] font-bold tracking-[2px] uppercase rounded-sm hover:bg-white transition-colors">
-            Falar com Corretor
-          </button>
-        </div>
-      </header>
-
-      {/* HERO SECTION */}
-      <section className="relative h-[70vh] w-full flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 bg-[#1A1A1A]">
-          {property.main_image ? (
-            <img src={property.main_image} alt={property.title} className="w-full h-full object-cover" />
-          ) : (
-            <div className="flex items-center justify-center h-full text-gray-600 text-sm tracking-widest uppercase">
-              Sem imagem principal
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-[#121212]/40 to-black/30 pointer-events-none" />
-        </div>
-        
-        <div className="relative z-10 text-center px-5 mt-32 max-w-4xl">
-          <div className="inline-block px-4 py-1 border border-[#CBA153] text-[#CBA153] text-[9px] uppercase tracking-[3px] mb-6 rounded-sm bg-black/50 backdrop-blur-sm">
-            {sp.tipo_imovel || 'Imóvel Exclusivo'}
-          </div>
-          <h1 className="text-white text-4xl md:text-5xl font-serif tracking-wide mb-4 drop-shadow-2xl">
-            {property.title}
-          </h1>
-          <p className="text-[11px] uppercase tracking-[4px] text-gray-300 drop-shadow-md mb-8">
-            {property.subtitle || `${property.city} • ${property.state}`}
-          </p>
-          <div className="font-serif text-[#CBA153] text-4xl mt-4 tracking-wider drop-shadow-2xl">
-            {formatPrice(property.price)}
+    <div className="bg-[#141414] min-h-screen text-white">
+      {/* IMPLEMENTAÇÃO: Banner de pré-visualização refinado com ícone e layout. */}
+      {status === 'Ativo' && (
+        <div className="bg-black/20 text-center p-4 border-b border-[#CBA153]/30 shadow-lg">
+          <div className="flex items-center justify-center max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <EyeIcon className="w-5 h-5 mr-3 text-[#CBA153]/70" />
+            <p className="text-sm font-medium text-[#CBA153]">
+              <span className="font-semibold">PRÉ-VISUALIZAÇÃO:</span> Este anúncio ainda não está visível para o público.
+            </p>
           </div>
         </div>
-      </section>
+      )}
 
-      <div className="max-w-[1200px] w-[90%] mx-auto mt-[-40px] relative z-20">
-        
-        {/* CARDS DE DESTAQUE PRINCIPAIS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-20 bg-[#1A1A1A] p-4 rounded-xl shadow-2xl border border-white/5">
-          {sp.dormitorios ? (
-            <div className="flex flex-col items-center justify-center p-6 border-r border-white/5 last:border-0">
-              <span className="text-2xl text-[#CBA153] font-serif mb-1">{sp.dormitorios}</span>
-              <span className="text-[9px] uppercase tracking-[2px] text-gray-500">Dormitórios</span>
-            </div>
-          ) : null}
-          
-          {sp.suites ? (
-            <div className="flex flex-col items-center justify-center p-6 border-r border-white/5 last:border-0">
-              <span className="text-2xl text-[#CBA153] font-serif mb-1">{sp.suites}</span>
-              <span className="text-[9px] uppercase tracking-[2px] text-gray-500">Suítes</span>
-            </div>
-          ) : null}
-          
-          {sp.vagas ? (
-            <div className="flex flex-col items-center justify-center p-6 border-r border-white/5 last:border-0">
-              <span className="text-2xl text-[#CBA153] font-serif mb-1">{sp.vagas}</span>
-              <span className="text-[9px] uppercase tracking-[2px] text-gray-500">Vagas {sp.tipo_vaga ? `(${sp.tipo_vaga})` : ''}</span>
-            </div>
-          ) : null}
-          
-          {sp.area_m2 ? (
-            <div className="flex flex-col items-center justify-center p-6">
-              <span className="text-2xl text-[#CBA153] font-serif mb-1">{sp.area_m2}m²</span>
-              <span className="text-[9px] uppercase tracking-[2px] text-gray-500">Área Útil</span>
-            </div>
-          ) : null}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Cabeçalho com Título e Preço */}
+        <div className="mb-8 text-center">
+          <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl md:text-6xl font-serif">{title}</h1>
+          <p className="mt-2 max-w-2xl mx-auto text-lg text-gray-400">{subtitle}</p>
+          <p className="mt-4 text-4xl font-bold text-[#CBA153]">{formattedPrice}</p>
         </div>
 
+        {/* Galeria de Fotos */}
+        {allImages.length > 0 && (
+          <div className="mb-12 shadow-2xl shadow-black/30 rounded-lg overflow-hidden border-4 border-transparent hover:border-[#CBA153]/50 transition-all duration-300">
+            <PhotoAlbum 
+              layout="rows" 
+              photos={photos}
+              targetRowHeight={350}
+              onClick={({ index }) => openLightbox(index)}
+              componentsProps={{
+                image: {
+                  className: "hover:opacity-80 transition-opacity duration-300 cursor-pointer"
+                }
+              }}
+            />
+          </div>
+        )}
+
+        {/* Botões de Ação */}
+        <div className="flex justify-center items-center space-x-4 mb-12">
+          <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-8 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-green-500 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-transform hover:scale-105">
+            <WhatsAppIcon className="w-5 h-5 mr-2" />
+            Chamar no WhatsApp
+          </a>
+        </div>
+
+        {/* Layout de 2 colunas: Descrição e Detalhes */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          
-          {/* COLUNA ESQUERDA (DESCRIÇÃO E DETALHES) */}
-          <div className="col-span-1 lg:col-span-2 flex flex-col gap-16">
-            
-            {/* SOBRE O IMÓVEL */}
-            <section>
-              <h2 className="text-[#CBA153] text-2xl font-serif mb-6 border-b border-white/10 pb-4">Sobre o Imóvel</h2>
-              <p className="text-[15px] text-gray-300 leading-loose whitespace-pre-line font-light">
-                {property.description}
-              </p>
-            </section>
-
-            {/* CARACTERÍSTICAS TÉCNICAS */}
-            <section>
-              <h2 className="text-[#CBA153] text-2xl font-serif mb-6 border-b border-white/10 pb-4">Ficha Técnica</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-12">
-                <div className="flex justify-between border-b border-white/5 pb-2">
-                  <span className="text-gray-500 text-xs">Tipo</span>
-                  <span className="text-gray-200 text-xs font-medium">{sp.tipo_imovel || '-'}</span>
-                </div>
-                <div className="flex justify-between border-b border-white/5 pb-2">
-                  <span className="text-gray-500 text-xs">Área do Terreno</span>
-                  <span className="text-gray-200 text-xs font-medium">{sp.area_terreno ? `${sp.area_terreno}m²` : '-'}</span>
-                </div>
-                <div className="flex justify-between border-b border-white/5 pb-2">
-                  <span className="text-gray-500 text-xs">Ano Const. / Tempo</span>
-                  <span className="text-gray-200 text-xs font-medium">{sp.tempo_construcao_anos ? `${sp.tempo_construcao_anos} anos` : '-'}</span>
-                </div>
-                <div className="flex justify-between border-b border-white/5 pb-2">
-                  <span className="text-gray-500 text-xs">Banheiros Totais</span>
-                  <span className="text-gray-200 text-xs font-medium">{sp.banheiros || '-'}</span>
-                </div>
-                <div className="flex justify-between border-b border-white/5 pb-2">
-                  <span className="text-gray-500 text-xs">Estado Conser.</span>
-                  <span className="text-gray-200 text-xs font-medium">{sp.conservacao || '-'}</span>
-                </div>
-                <div className="flex justify-between border-b border-white/5 pb-2">
-                  <span className="text-gray-500 text-xs">Documentação</span>
-                  <span className="text-gray-200 text-xs font-medium">{sp.documentacao || '-'}</span>
-                </div>
-
-                {/* Campos Administrativos Marcados Como Públicos */}
-                {publicAdminFields.map((field, idx) => (
-                  <div key={idx} className="flex justify-between border-b border-white/5 pb-2">
-                    <span className="text-[#CBA153]/70 text-xs">{field.name}</span>
-                    <span className="text-gray-200 text-xs font-medium">{field.value}</span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* COMODIDADES */}
-            {amenities.length > 0 && (
-              <section>
-                <h2 className="text-[#CBA153] text-2xl font-serif mb-6 border-b border-white/10 pb-4">Comodidades & Lazer</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {amenities.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-3 bg-[#1A1A1A] p-4 rounded-sm border border-white/5">
-                      <Check size={16} className="text-[#CBA153]" />
-                      <span className="text-sm text-gray-300">{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* GALERIA */}
-            {property.gallery && property.gallery.length > 0 && (
-              <section>
-                <h2 className="text-[#CBA153] text-2xl font-serif mb-6 border-b border-white/10 pb-4 flex items-center gap-3">
-                  <ImageIcon size={24} /> Galeria de Fotos
-                </h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {property.gallery.map((url, idx) => (
-                    url ? (
-                      <div key={idx} className="aspect-[4/3] bg-[#1A1A1A] overflow-hidden rounded-sm group relative cursor-pointer">
-                        <img src={url} alt={`Foto ${idx+1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-80 group-hover:opacity-100" />
-                      </div>
-                    ) : null
-                  ))}
-                </div>
-              </section>
-            )}
-
+          <div className="lg:col-span-2">
+            <h2 className="text-2xl font-bold text-gray-100 mb-4 font-serif">Descrição do Imóvel</h2>
+            <div className="prose prose-invert max-w-none text-gray-300 leading-relaxed" dangerouslySetInnerHTML={{ __html: description.replace(/\n/g, '<br />') || '' }} />
           </div>
-
-          {/* COLUNA DIREITA (CONTATO FIXO) */}
-          <div className="col-span-1">
-            <div className="sticky top-32 bg-[#1A1A1A] border border-[#CBA153]/30 p-8 rounded-xl flex flex-col items-center text-center shadow-2xl">
-              <div className="w-24 h-24 rounded-full border-2 border-[#CBA153] overflow-hidden bg-[#121212] flex items-center justify-center mb-4">
-                <span className="text-[10px] uppercase tracking-widest text-gray-500">Logo</span>
+          
+          <div>
+            <div className="sticky top-24">
+              <div className="bg-[#1C1C1C] rounded-lg shadow-lg p-6 border border-white/10">
+                <h2 className="text-xl font-bold text-gray-100 mb-4 font-serif">Detalhes</h2>
+                <div className="space-y-2">
+                  {Object.entries(specs).map(([key, value]) => (
+                     <DetailItem key={key} label={key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')} value={String(value)} />
+                  ))}
+                </div>
               </div>
-              <h3 className="text-lg font-serif text-[#E0E0E0] mb-1">{property.seller_name}</h3>
-              <p className="text-[#CBA153] text-[10px] uppercase tracking-[2px] mb-8">Anunciante Verificado</p>
-
-              <div className="w-full flex flex-col gap-3">
-                <a href={`https://wa.me/${property.seller_phone}?text=Ol%C3%A1,%20tenho%20interesse%20no%20im%C3%B3vel%20${property.title}`} 
-                   className="w-full bg-[#CBA153] text-[#121212] font-bold text-xs tracking-widest uppercase py-4 rounded-sm hover:bg-white transition-colors flex items-center justify-center gap-2">
-                  WhatsApp Direto
-                </a>
-                <a href={`tel:${property.seller_phone}`} 
-                   className="w-full border border-white/20 text-[#E0E0E0] text-xs tracking-widest uppercase py-4 rounded-sm hover:border-white hover:text-white transition-colors flex items-center justify-center gap-2">
-                  Ligar Agora
-                </a>
-              </div>
-
-              <div className="mt-8 pt-8 border-t border-white/10 w-full flex justify-center gap-6">
-                <button className="text-gray-500 hover:text-[#CBA153] transition-colors flex flex-col items-center gap-2">
-                  <Bookmark size={18} />
-                  <span className="text-[8px] uppercase tracking-widest">Salvar</span>
-                </button>
-                <button className="text-gray-500 hover:text-[#CBA153] transition-colors flex flex-col items-center gap-2">
-                  <Share2 size={18} />
-                  <span className="text-[8px] uppercase tracking-widest">Enviar</span>
-                </button>
-                <button className="text-gray-500 hover:text-[#CBA153] transition-colors flex flex-col items-center gap-2">
-                  <Globe size={18} />
-                  <span className="text-[8px] uppercase tracking-widest">Site</span>
-                </button>
+              <div className="bg-[#1C1C1C] rounded-lg shadow-lg p-6 mt-6 border border-white/10">
+                  <h3 className="text-xl font-bold text-gray-100 mb-4 font-serif">Anunciante</h3>
+                  <p className="text-lg font-medium text-gray-200">{seller_name}</p>
               </div>
             </div>
           </div>
-
         </div>
-      </div>
-      
-      <footer className="mt-32 text-center py-10 text-[10px] uppercase tracking-[3px] text-gray-600 border-t border-white/5 bg-[#1A1A1A]">
-        © 2026 - Imóvel Forte Exclusivity
-      </footer>
+      </main>
+
+      {lightboxOpen && (
+        <div className='fixed inset-0 bg-black/90 z-50 flex items-center justify-center' onClick={() => setLightboxOpen(false)}>
+          <button className='absolute top-4 right-4 text-white text-3xl z-50'>&times;</button>
+          <div className='relative w-full h-full max-w-4xl max-h-screen p-4 flex items-center justify-center'>
+            <img src={allImages[photoIndex]} alt="Expanded view" className='max-w-full max-h-full object-contain' />
+            <button 
+              className='absolute left-4 top-1/2 -translate-y-1/2 text-white bg-black/50 p-2 rounded-full' 
+              onClick={(e) => { e.stopPropagation(); setPhotoIndex((photoIndex + allImages.length - 1) % allImages.length); }}>
+              &#10094;
+            </button>
+            <button 
+              className='absolute right-4 top-1/2 -translate-y-1/2 text-white bg-black/50 p-2 rounded-full' 
+              onClick={(e) => { e.stopPropagation(); setPhotoIndex((photoIndex + 1) % allImages.length); }}>
+              &#10095;
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

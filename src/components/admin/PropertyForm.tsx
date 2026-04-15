@@ -2,21 +2,22 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ImagePlus, X, Trash2, Loader2, Check } from 'lucide-react'
+import { ArrowLeft, ImagePlus, X, Trash2, Loader2, Check, AlertTriangle } from 'lucide-react'
 import { createProperty, updateProperty, deleteProperty } from '@/app/admin/actions'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import imageCompression from 'browser-image-compression'
-import Cropper from 'react-easy-crop'
 import Header from '@/components/layout/Header'
-
-// Constantes de endereço do anunciante removidas conforme pedido.
+import { type User } from '@supabase/supabase-js'
+import { type Profile } from '@/types/database'
 
 interface PropertyFormProps {
   property?: any
+  user: User
+  profile: Profile | null
 }
 
-export default function PropertyForm({ property }: PropertyFormProps) {
+export default function PropertyForm({ property, user, profile }: PropertyFormProps) {
   const router = useRouter()
   const isEdit = !!property
   const sp = property?.features || {}
@@ -27,38 +28,32 @@ export default function PropertyForm({ property }: PropertyFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
+  
+  // State for the unified profile validation error message.
+  const [profileError, setProfileError] = useState<string | null>(null);
 
-  // Timer para limpar a mensagem de sucesso após 5 segundos
+  // Check for essential profile data.
+  const hasCompleteProfile = !!(profile?.full_name && user?.email && profile?.phone_deprecated);
+
   useEffect(() => {
     if (successMessage) {
-      const timer = setTimeout(() => {
-        setSuccessMessage(null)
-      }, 5000)
+      const timer = setTimeout(() => setSuccessMessage(null), 5000)
       return () => clearTimeout(timer)
     }
   }, [successMessage])
 
-  // Handlers para Sincronização de Autofill
   const handleAutoFill = useCallback((e: React.AnimationEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     if (e.animationName === 'onAutoFillStart') {
       const fieldName = e.currentTarget.name;
-      
-      // 1. Limpar erro visual se o campo foi preenchido
       setErrors((prev: any) => {
         if (!prev[fieldName]) return prev;
         const newErrs = { ...prev };
         delete newErrs[fieldName];
         return newErrs;
       });
-
-      // 2. Sincronizar estados específicos se necessário
-      if (fieldName === 'announcer_type') {
-        setAnnouncerType(e.currentTarget.value);
-      }
     }
   }, []);
 
-  // === Galeria de Fotos ===
   const MAX_PHOTOS = 21
   const [galleryImages, setGalleryImages] = useState<{ id: string; url: string; uploading: boolean }[]>(
     gal.map((url: string, i: number) => ({ id: `existing_${i}`, url, uploading: false }))
@@ -70,7 +65,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
 
   const compressAndUpload = useCallback(async (file: File, slotId: string) => {
     try {
-      // 1) Comprimir a imagem no navegador (max 1MB, max 1920px)
       const compressed = await imageCompression(file, {
         maxSizeMB: 1,
         maxWidthOrHeight: 1920,
@@ -78,7 +72,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
         fileType: 'image/webp',
       })
 
-      // 2) Upload para Supabase Storage
       const supabase = createClient()
       const ext = 'webp'
       const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_').replace(/\.[^.]+$/, '')
@@ -94,12 +87,10 @@ export default function PropertyForm({ property }: PropertyFormProps) {
 
       if (error) throw error
 
-      // 3) Obter URL pública
       const { data: urlData } = supabase.storage
         .from('properties')
         .getPublicUrl(data.path)
 
-      // 4) Atualizar o slot com a URL final
       setGalleryImages(prev =>
         prev.map(img =>
           img.id === slotId
@@ -109,7 +100,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
       )
     } catch (err) {
       console.error('Erro ao comprimir/subir imagem:', err)
-      // Remove o slot que falhou
       setGalleryImages(prev => prev.filter(img => img.id !== slotId))
     }
   }, [])
@@ -119,7 +109,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
     const slotsAvailable = MAX_PHOTOS - galleryImages.length
     const filesToAdd = files.slice(0, slotsAvailable)
 
-    // Criar slots com preview local + estado de loading
     const newSlots = filesToAdd.map((file, i) => {
       const id = `upload_${Date.now()}_${i}`
       return { id, url: URL.createObjectURL(file), uploading: true, file }
@@ -127,7 +116,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
 
     setGalleryImages(prev => [...prev, ...newSlots.map(({ file, ...rest }) => rest)])
 
-    // Iniciar compressão e upload em paralelo para cada arquivo
     newSlots.forEach(slot => {
       compressAndUpload(slot.file, slot.id)
     })
@@ -137,7 +125,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
 
   const handleRemoveImage = async (id: string) => {
     const img = galleryImages.find(i => i.id === id)
-    // Tentar remover do Storage se for URL do Supabase
     if (img && img.url.includes('supabase')) {
       try {
         const supabase = createClient()
@@ -153,7 +140,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
   }
 
   const handleRemoveAll = async () => {
-    // Remover todas do Storage
     const supabaseUrls = galleryImages.filter(img => img.url.includes('supabase'))
     if (supabaseUrls.length > 0) {
       try {
@@ -174,10 +160,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
     setGalleryImages([])
   }
 
-  const [announcerType, setAnnouncerType] = useState(adm.announcer_type || '')
-  const [announcerPhoto, setAnnouncerPhoto] = useState<string | null>(adm.announcer_photo || null)
-  
-  // Categorias e Subcategorias sincronizadas com o menu
   const [category, setCategory] = useState(property?.category || '')
   const [subcategory, setSubcategory] = useState(property?.subcategory || '')
 
@@ -197,140 +179,7 @@ export default function PropertyForm({ property }: PropertyFormProps) {
     'Comercial': ['SALAS COMERCIAIS', 'PRÉDIOS INTEIROS', 'GALPÕES', 'LOJAS'],
     'Lançamentos': ['NA PLANTA', 'EM OBRAS', 'PRONTO PARA MORAR', 'OPORTUNIDADES']
   }
-
-  const [isPhotoUploading, setIsPhotoUploading] = useState(false)
-  const avatarInputRef = useRef<HTMLInputElement>(null)
-
-  // States for Avatar Crop
-  const [imageToCrop, setImageToCrop] = useState<string | null>(null)
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null)
-  const [isCropping, setIsCropping] = useState(false)
-
-  const onCropComplete = useCallback((_croppedArea: any, croppedAreaPixels: any) => {
-    setCroppedAreaPixels(croppedAreaPixels)
-  }, [])
-
-  const handleAvatarSelect = () => avatarInputRef.current?.click()
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      // Otimização: Usar createObjectURL em vez de readAsDataURL para carregamento instantâneo
-      const objectUrl = URL.createObjectURL(file)
-      setImageToCrop(objectUrl)
-      setIsCropping(true)
-    }
-  }
-
-  const handleCancelCrop = () => {
-    if (imageToCrop) URL.revokeObjectURL(imageToCrop) // Limpeza de memória
-    setImageToCrop(null)
-    setIsCropping(false)
-    if (avatarInputRef.current) avatarInputRef.current.value = ''
-  }
-
-  const handleSaveCroppedImage = async () => {
-    if (!imageToCrop || !croppedAreaPixels) return
-
-    setIsPhotoUploading(true)
-    setIsCropping(false)
-    
-    try {
-      const image = new Image()
-      
-      // Carregamento da imagem com Promessa para garantir que está pronta para o Canvas
-      const loadPromise = new Promise((resolve, reject) => {
-        image.onload = resolve
-        image.onerror = (err) => {
-          console.error('Erro ao carregar imagem para o Canvas:', err)
-          reject(new Error('Erro ao carregar arquivo de imagem'))
-        }
-      })
-      
-      // Importante: Setar src APÓS definir os handlers de onload/onerror
-      image.src = imageToCrop
-      await loadPromise
-
-      const canvas = document.createElement('canvas')
-      // Forçamos o redimensionamento final no próprio Canvas (800x800)
-      canvas.width = 800
-      canvas.height = 800
-      const ctx = canvas.getContext('2d')
-
-      if (!ctx) throw new Error('Falha ao obter contexto 2D')
-
-      // Aplicar o corte baseado nos pixels selecionados e redimensionar para 800x800
-      ctx.drawImage(
-        image,
-        croppedAreaPixels.x,
-        croppedAreaPixels.y,
-        croppedAreaPixels.width,
-        croppedAreaPixels.height,
-        0,
-        0,
-        800,
-        800
-      )
-
-      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/webp', 0.85))
-      if (!blob) throw new Error('Falha ao gerar arquivo de imagem (Blob)')
-
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Usuário não autenticado no sistema')
-
-      // Caminho fixo: identidade/[user_id]/perfil.webp
-      const filePath = `identidade/${user.id}/perfil.webp`
-
-      // Upload com upsert (substituição)
-      const { data, error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, blob, {
-          contentType: 'image/webp',
-          cacheControl: '0', // Sem cache para atualização imediata
-          upsert: true,
-        })
-
-      if (uploadError) {
-        console.error('Erro no upload para o Storage:', uploadError)
-        throw new Error('Erro ao salvar no servidor de arquivos')
-      }
-
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(data.path)
-      
-      // Cache-buster robusto para forçar o navegador a recarregar
-      const publicUrl = `${urlData.publicUrl}?t=${new Date().getTime()}`
-      
-      setAnnouncerPhoto(publicUrl)
-
-      // Atualiza o perfil no banco de dados
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('id', user.id)
-
-      if (profileError) console.error('Erro ao atualizar banco de perfis:', profileError)
-
-      // Notificar o sistema que o perfil mudou (atualiza o Header)
-      router.refresh()
-
-    } catch (err: any) {
-      console.error('Erro Crítico:', err)
-      alert(`Erro: ${err.message || 'Falha ao processar imagem'}. Tente um arquivo diferente.`)
-    } finally {
-      setIsPhotoUploading(false)
-      // Liberar memória do objeto temporário
-      if (imageToCrop && imageToCrop.startsWith('blob:')) {
-        URL.revokeObjectURL(imageToCrop)
-      }
-      setImageToCrop(null)
-      if (avatarInputRef.current) avatarInputRef.current.value = ''
-    }
-  }
   
-  // Lógica de Estados e Cidades
   const states = [
     'SP', 'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SE', 'TO'
   ]
@@ -338,7 +187,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
   const [selectedState, setSelectedState] = useState(property?.address_state || 'SP')
   const [citySearch, setCitySearch] = useState(property?.address_city || '')
   
-  // Novos estados para endereço detalhado
   const [cep, setCep] = useState(property?.specs?.cep || '')
   const [street, setStreet] = useState(property?.specs?.street || '')
   const [neighborhood, setBairro] = useState(property?.specs?.neighborhood || '')
@@ -346,8 +194,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
   const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, '')
     if (value.length > 8) value = value.slice(0, 8)
-    
-    // Aplica máscara 00000-000
     const masked = value.replace(/^(\d{5})(\d{3}).*/, '$1-$2')
     setCep(masked)
 
@@ -355,7 +201,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
       try {
         const response = await fetch(`https://viacep.com.br/ws/${value}/json/`)
         const data = await response.json()
-        
         if (!data.erro) {
           setStreet(data.logradouro)
           setBairro(data.bairro)
@@ -368,7 +213,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
     }
   }
 
-  // Base de cidades robusta: 100% de SP + ~20% das mais populosas dos demais estados (IBGE 2025)
   const citiesByState: Record<string, string[]> = {
     'SP': [
       'São Paulo', 'Guarulhos', 'Campinas', 'São Bernardo do Campo', 'Santo André', 'São José dos Campos', 'Osasco', 'Ribeirão Preto', 'Sorocaba', 'Mauá', 
@@ -376,7 +220,7 @@ export default function PropertyForm({ property }: PropertyFormProps) {
       'Franca', 'Praia Grande', 'Guarujá', 'Taubaté', 'Limeira', 'Suzano', 'Sumaré', 'Cotia', 'Taboão da Serra', 'Barueri', 'Embu das Artes', 'Indaiatuba', 
       'São Carlos', 'Itu', 'Americana', 'Jacareí', 'Marília', 'Araraquara', 'Hortolândia', 'Presidente Prudente', 'Araçatuba', 'Rio Claro', 'Santa Bárbara d\'Oeste', 
       'Ferraz de Vasconcelos', 'Francisco Morato', 'Itapevi', 'Bragança Paulista', 'Pindamonhangaba', 'São Caetano do Sul', 'Atibaia', 'Poá', 'Salto', 'Valinhos',
-      'Jandira', 'Sertãozinho', 'Ribeirão Pires', 'Catanduva', 'Votorantim', 'Barretos', 'Várzea Paulista', 'Guaratinguetá', 'Tatuí', 'Caraguatatuba', 'Birigui',
+      'Jandira', 'sertãozinho', 'Ribeirão Pires', 'Catanduva', 'Votorantim', 'Barretos', 'Várzea Paulista', 'Guaratinguetá', 'Tatuí', 'Caraguatatuba', 'Birigui',
       'Itatiba', 'Araras', 'Ourinhos', 'Paulínia', 'Assis', 'Leme', 'Mogi Guaçu', 'São João da Boa Vista', 'Caieiras', 'Avaré', 'Mairiporã', 'Lorena', 'Botucatu',
       'Ubatuba', 'Mogi Mirim', 'Votuporanga', 'Arujá', 'São Sebastião', 'Matão', 'Bebedouro', 'Jaboticabal', 'Pirassununga', 'Lins', 'Franco da Rocha', 'Cruzeiro',
       'Vinhedo', 'Cajamar', 'Fernandópolis', 'Peruíbe', 'Lençóis Paulista', 'São Roque', 'Mongaguá', 'São José do Rio Pardo', 'Boituva', 'Ibitinga', 'Batatais',
@@ -417,66 +261,57 @@ export default function PropertyForm({ property }: PropertyFormProps) {
   const getSortedCities = (state: string) => {
     const cities = citiesByState[state] || []
     const capital = capitalsByState[state]
-    
-    // Filtra a capital para garantir que ela não apareça duas vezes
     const otherCities = cities.filter(c => c !== capital).sort((a, b) => a.localeCompare(b, 'pt-BR'))
-    
-    // Retorna a capital no topo se existir, seguida das outras em ordem alfabética
     return capital ? [capital, ...otherCities] : otherCities
   }
 
-  const [profileData, setProfileData] = useState({
-    name: '',
-    email: '',
-    whatsapp: '',
-    creci: '',
-    company: '',
-    photo: ''
-  })
-
-  useEffect(() => {
-    async function loadProfile() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-        const pData = {
-          name: prof?.full_name || user.user_metadata?.full_name || '',
-          email: user.email || '',
-          whatsapp: prof?.whatsapp || '',
-          creci: prof?.creci || '',
-          company: prof?.company || '',
-          photo: prof?.avatar_url || ''
-        }
-        setProfileData(pData)
-        
-        if (!isEdit && !announcerPhoto && pData.photo) {
-          setAnnouncerPhoto(pData.photo)
-        }
-      }
-    }
-    loadProfile()
-  }, [isEdit])
-
-  const handleRemoveAvatar = () => {
-    setAnnouncerPhoto(null)
+  const formatPhone = (phone: string | null | undefined) => {
+    if (!phone) return '';
+    let value = phone.replace(/\D/g, '');
+    if (value.length > 11) value = value.substring(0, 11);
+    if (value.length > 10) return value.replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+    if (value.length > 6) return value.replace(/^(\d{2})(\d{4})(\d{4})$/, '($1) $2-$3');
+    if (value.length > 2) return value.replace(/^(\d{2})(\d{1,5})$/, '($1) $2');
+    return value.replace(/^(\d*)/, '($1');
   }
 
+  const formattedUserPhone = formatPhone(profile?.phone_deprecated);
+
   const labelClass = "text-gray-400 text-[10px] tracking-widest uppercase font-semibold"
+  const announcerLabelClass = "text-[#CBA153] text-[10px] tracking-widest uppercase font-semibold"
   const inputClass = "bg-[#121212] border border-[#CBA153]/10 rounded-sm px-4 py-2.5 text-[#E0E0E0] focus:border-[#CBA153] outline-none transition-colors text-xs placeholder:text-gray-700"
+  const readOnlyInputClass = "bg-[#1C1C1C]/50 border-dashed border-[#CBA153]/10 cursor-not-allowed text-gray-400"
   const selectClass = "bg-[#121212] border border-[#CBA153]/10 rounded-sm px-4 py-2.5 text-[#E0E0E0] focus:border-[#CBA153] outline-none appearance-none transition-colors text-xs cursor-pointer"
   const errorClass = 'bg-yellow-500/10 border-yellow-500'
 
-  const pageTitle = isEdit ? "Cadastrar e Editar imóvel" : "Cadastrar imóvel"
+  const pageTitle = isEdit ? "Editar Imóvel" : "Cadastrar Imóvel"
 
   const handleValidateAndSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+
+    // CRITICAL: Unified blocking validation for profile data.
+    if (!hasCompleteProfile) {
+      setProfileError("Dados de perfil incompletos. Para publicar seu imóvel, complete seu Nome, E-mail e Telefone.");
+      const errorElement = formRef.current?.querySelector('#profile-error-message');
+      errorElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return; // Stop submission.
+    }
+    setProfileError(null); // Clear error if validation passes.
+
     setIsSubmitting(true)
     setSuccessMessage(null)
     const formData = new FormData(event.currentTarget)
+
+    // Automatically include required profile data not present in the form fields.
+    if (profile?.phone_deprecated) {
+      formData.set('announcer_whatsapp', profile.phone_deprecated);
+    }
+    if (profile?.avatar_url) {
+      formData.set('announcer_photo', profile.avatar_url);
+    }
+
     const newErrors: any = {}
 
-    // Validações básicas e Section 1 & 2
     if (!formData.get('title')) newErrors.title = true
     if (!formData.get('price')) newErrors.price = true
     if (!formData.get('intent')) newErrors.intent = true
@@ -487,15 +322,10 @@ export default function PropertyForm({ property }: PropertyFormProps) {
     if (!formData.get('state')) newErrors.state = true
     if (!formData.get('description')) newErrors.description = true
     
-    // Validações Seção 7.4 (Identificação do Anunciante)
+    // These are now pre-filled and validated above, but we keep them for the FormData object.
     if (!formData.get('announcer_name')) newErrors.announcer_name = true
     if (!formData.get('announcer_whatsapp')) newErrors.announcer_whatsapp = true
     if (!formData.get('announcer_email')) newErrors.announcer_email = true
-    if (!formData.get('announcer_type')) newErrors.announcer_type = true
-    if (!formData.get('intent')) newErrors.intent = true
-    if (formData.get('announcer_type') === 'Profissional' && !formData.get('announcer_creci')) {
-      newErrors.announcer_creci = true
-    }
 
     setErrors(newErrors)
 
@@ -509,17 +339,13 @@ export default function PropertyForm({ property }: PropertyFormProps) {
         }
 
         if (result?.success) {
-          setSuccessMessage(isEdit ? "Imóvel atualizado com sucesso!" : "Imóvel Salvo com Sucesso!  Pronto para Cadastrar Novo Imóvel.")
+          setSuccessMessage(isEdit ? "Imóvel atualizado com sucesso!" : "Imóvel cadastrado com sucesso!")
           
           if (!isEdit) {
-             // Limpar completamente todos os campos (7.1 a 7.4)
              formRef.current?.reset()
              setGalleryImages([])
-             setAnnouncerPhoto(null)
-             setAnnouncerType('')
           }
           
-          // Reposicionar o cursor do navegador para o topo
           window.scrollTo({ top: 0, behavior: 'smooth' })
         } else if (result?.error) {
           alert(result.error)
@@ -789,7 +615,9 @@ export default function PropertyForm({ property }: PropertyFormProps) {
                   <option value="">Selecione...</option>
                   <option value="Coberta">Coberta</option>
                   <option value="Descoberta">Descoberta</option>
-                  <option value="Mista">Mista</option>
+                  <option value="Fixa">Fixa</option>
+                  <option value="Rotativa">Rotativa</option>
+                  <option value="Travada">Travada</option>
                 </select>
               </div>
               <div className="flex flex-col gap-3">
@@ -866,50 +694,54 @@ export default function PropertyForm({ property }: PropertyFormProps) {
           </section>
 
           <section className="luxury-card p-8 rounded-xl flex flex-col gap-6">
-            <h3 className="text-[#CBA153] text-lg font-serif border-b border-[#CBA153]/20 pb-3">4. Lazer & Comodidades</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { name: 'tem_piscina', label: 'Piscina' },
-                { name: 'tem_edicula', label: 'Edícula' },
-                { name: 'tem_churrasqueira', label: 'Churrasqueira' },
-                { name: 'tem_hidro', label: 'Hidromassagem' },
-                { name: 'tem_ar', label: 'Ar Condicionado' },
-                { name: 'tem_area_gourmet', label: 'ÁREA GOURMET' },
-                { name: 'tem_varanda', label: 'VARANDA' },
-                { name: 'tem_sacada', label: 'SACADA' }
-              ].map((item, idx) => (
-                <label key={`${item.name}_${idx}`} className="flex flex-col items-center gap-3 cursor-pointer p-6 border border-white/10 rounded-sm hover:border-[#CBA153]/50 transition-colors bg-[#1A1A1A]">
-                  <input type="checkbox" name={item.name} value="true" defaultChecked={sp[item.name]} className="w-[19.5px] h-[19.5px] accent-[#CBA153]" />
-                  <span className={labelClass}>{item.label}</span>
-                </label>
-              ))}
-            </div>
-          </section>
+          <h3 className="text-[#CBA153] text-lg font-serif border-b border-[#CBA153]/20 pb-3">4. Lazer & Comodidades</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { name: 'has_pool', label: 'Piscina' },
+              { name: 'has_granny_flat', label: 'Edícula' },
+              { name: 'has_bbq_grill', label: 'Churrasqueira' },
+              { name: 'has_hydromassage', label: 'Hidromassagem' },
+              { name: 'has_air_conditioning', label: 'Ar Condicionado' },
+              { name: 'has_gourmet_area', label: 'ÁREA GOURMET' },
+              { name: 'has_balcony', label: 'VARANDA' },
+              { name: 'has_terrace', label: 'SACADA' },
+            ].map((item, idx) => (
+              <label key={`${item.name}_${idx}`} className="flex flex-col items-center gap-3 cursor-pointer p-6 border border-white/10 rounded-sm hover:border-[#CBA153]/50 transition-colors bg-[#1A1A1A]">
+                <input type="checkbox" name={item.name} value="true" defaultChecked={property?.[item.name]} className="w-[19.5px] h-[19.5px] accent-[#CBA153]" />
+                <span className={labelClass}>{item.label}</span>
+              </label>
+            ))}
+          </div>
+        </section>
 
           <section className="luxury-card p-8 rounded-xl flex flex-col gap-6">
             <h3 className="text-[#CBA153] text-lg font-serif border-b border-[#CBA153]/20 pb-3">5. Infraestrutura do Condomínio</h3>
             <p className="text-sm text-gray-500 uppercase tracking-widest font-medium">Selecione os itens disponíveis</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { id: 'piscina', label: 'Piscina' },
-                { id: 'churrasqueira', label: 'Churrasqueira' },
-                { id: 'salao_festas', label: 'Salão de Festas' },
-                { id: 'academia', label: 'Academia' },
-                { id: 'playground', label: 'Playground' },
-                { id: 'quadra', label: 'Quadra Poliesportiva' },
-                { id: 'brinquedoteca', label: 'Brinquedoteca' },
-                { id: 'jogos', label: 'Salão de Jogos' },
-                { id: 'gourmet', label: 'Espaço Gourmet' },
-                { id: 'sauna', label: 'Sauna' },
-                { id: 'pet_place', label: 'Pet Place' },
-                { id: 'caminhada', label: 'Pista de Caminhada' },
-                { id: 'coworking', label: 'Coworking' },
-                { id: 'bicicletario', label: 'Bicicletário' },
-                { id: 'mercado', label: 'Mini Mercado' },
-                { id: 'portaria_24h', label: 'PORTARIA 24H' },
+                { name: 'condo_has_pool', label: 'Piscina' },
+                { name: 'condo_has_bbq_grill', label: 'Churrasqueira' },
+                { name: 'condo_has_party_room', label: 'Salão de Festas' },
+                { name: 'condo_has_gym', label: 'Academia' },
+                { name: 'condo_has_playground', label: 'Playground' },
+                { name: 'condo_has_sports_court', label: 'Quadra Poliesportiva' },
+                { name: 'condo_has_kids_playroom', label: 'Brinquedoteca' },
+                { name: 'condo_has_game_room', label: 'Salão de Jogos' },
+                { name: 'condo_has_gourmet_space', label: 'Espaço Gourmet' },
+                { name: 'condo_has_sauna', label: 'Sauna' },
+                { name: 'condo_has_pet_place', label: 'Pet Place' },
+                { name: 'condo_has_running_track', label: 'Pista de Caminhada' },
+                { name: 'condo_has_coworking_space', label: 'Coworking' },
+                { name: 'condo_has_bike_rack', label: 'Bicicletário' },
+                { name: 'condo_has_mini_market', label: 'Mini Mercado' },
+                { name: 'condo_has_24h_concierge', label: 'PORTARIA 24H' },
+                { name: 'condo_has_elevator', label: 'ELEVADOR' },
+                { name: 'condo_has_accessibility', label: 'ACESSIBILidade' },
+                { name: 'condo_has_caretaker', label: 'ZELADOR' },
+                { name: 'condo_has_ev_charger', label: 'PT. CARREG. VEIC. ELÉT.' },
               ].map((item) => (
-                <label key={item.id} className="flex items-center gap-3 cursor-pointer p-4 border border-white/5 rounded-sm hover:border-[#CBA153]/30 transition-colors bg-[#1A1A1A]">
-                  <input type="checkbox" name={`condo_${item.id}`} value="true" defaultChecked={sp.condo_specs?.[item.id]} className="w-[16.5px] h-[16.5px] accent-[#CBA153]" />
+                <label key={item.name} className="flex items-center gap-3 cursor-pointer p-4 border border-white/5 rounded-sm hover:border-[#CBA153]/30 transition-colors bg-[#1A1A1A]">
+                  <input type="checkbox" name={item.name} value="true" defaultChecked={property?.[item.name]} className="w-[16.5px] h-[16.5px] accent-[#CBA153]" />
                   <span className={labelClass}>{item.label}</span>
                 </label>
               ))}
@@ -922,13 +754,13 @@ export default function PropertyForm({ property }: PropertyFormProps) {
             <p className="text-sm text-gray-500 uppercase tracking-widest font-medium">Selecione os itens disponíveis</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {[
-                { id: 'alarme', label: 'ALARME' },
-                { id: 'cerca_eletrica', label: 'CERCA ELÉTRICA' },
-                { id: 'camera', label: 'CAMERA' },
-                { id: 'portao_automatico', label: 'PORTÃO AUTOMÁTICO' },
+                { name: 'security_has_alarm', label: 'ALARME' },
+                { name: 'security_has_electric_fence', label: 'CERCA ELÉTRICA' },
+                { name: 'security_has_camera', label: 'CAMERA' },
+                { name: 'security_has_auto_gate', label: 'PORTÃO AUTOMÁTICO' },
               ].map((item) => (
-                <label key={item.id} className="flex items-center gap-3 cursor-pointer p-4 border border-white/5 rounded-sm hover:border-[#CBA153]/30 transition-colors bg-[#1A1A1A]">
-                  <input type="checkbox" name={`seg_${item.id}`} value="true" defaultChecked={sp.seguranca_specs?.[item.id]} className="w-[16.5px] h-[16.5px] accent-[#CBA153]" />
+                <label key={item.name} className="flex items-center gap-3 cursor-pointer p-4 border border-white/5 rounded-sm hover:border-[#CBA153]/30 transition-colors bg-[#1A1A1A]">
+                  <input type="checkbox" name={item.name} value="true" defaultChecked={property?.[item.name]} className="w-[16.5px] h-[16.5px] accent-[#CBA153]" />
                   <span className={labelClass}>{item.label}</span>
                 </label>
               ))}
@@ -969,7 +801,6 @@ export default function PropertyForm({ property }: PropertyFormProps) {
               className="hidden"
             />
 
-            {/* Hidden inputs to send gallery URLs with form */}
             {galleryImages.map((img, i) => (
               <input key={img.id} type="hidden" name={`photo_${i + 1}`} value={img.url} />
             ))}
@@ -990,14 +821,12 @@ export default function PropertyForm({ property }: PropertyFormProps) {
                           alt={`Foto ${i + 1}`}
                           className={`w-full h-full object-cover transition-opacity ${image.uploading ? 'opacity-40' : 'opacity-100'}`}
                         />
-                        {/* Spinner de upload */}
                         {image.uploading && (
                           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30">
                             <Loader2 size={24} className="text-[#CBA153] animate-spin" />
                             <span className="text-[9px] text-[#CBA153] uppercase tracking-widest font-bold mt-1">Otimizando...</span>
                           </div>
                         )}
-                        {/* Botão remover (só aparece se não está em upload) */}
                         {!image.uploading && (
                           <button
                             type="button"
@@ -1025,243 +854,127 @@ export default function PropertyForm({ property }: PropertyFormProps) {
             </div>
           </section>
 
-          <section className="luxury-card p-8 rounded-xl flex flex-col gap-8 border-l-4 border-l-[#CBA153]">
+          <section className="luxury-card p-8 rounded-xl flex flex-col gap-6 border-l-4 border-l-[#CBA153]">
             <div className="flex justify-between items-end border-b border-[#CBA153]/40 pb-3">
-              <h3 className="text-[#CBA153] text-lg font-serif font-bold">8. Informações Restritas (Uso Interno)</h3>
-              <p className="text-xs text-red-400 uppercase tracking-widest font-bold">Invisível para Visitantes</p>
+              <h3 className="text-[#CBA153] text-lg font-serif font-bold">8. Informações do Anunciante</h3>
+              <Link href="/perfil/editar" className="text-xs text-[#CBA153]/80 uppercase tracking-widest font-bold hover:text-[#CBA153] hover:underline transition-all">
+                Edite o seu perfil
+              </Link>
             </div>
 
-            <div className="flex flex-col gap-5 pt-6 border-t border-white/10">
-              <h4 className="text-[#CBA153] text-[10px] uppercase tracking-[2px] font-bold flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-[#CBA153] rounded-full"></span> 7.4. Identificação do anunciante
-              </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
+              <div className="flex flex-col gap-2">
+                <label className={announcerLabelClass}>Nome do Anunciante *</label>
+                <input 
+                  type="text" 
+                  name="announcer_name" 
+                  readOnly
+                  defaultValue={profile?.full_name || ''} 
+                  className={`${inputClass} ${readOnlyInputClass}`}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className={announcerLabelClass}>E-mail *</label>
+                <input 
+                  type="email" 
+                  name="announcer_email" 
+                  readOnly
+                  defaultValue={user.email || ''} 
+                  className={`${inputClass} ${readOnlyInputClass}`}
+                />
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <label className={announcerLabelClass}>Telefone WhatsApp *</label>
+                <input 
+                  type="tel" 
+                  name="announcer_whatsapp" 
+                  readOnly
+                  value={formattedUserPhone}
+                  placeholder="(XX) XXXXX-XXXX" 
+                  className={`${inputClass} ${readOnlyInputClass}`}
+                />
+              </div>
 
-              <div className="flex flex-col md:flex-row gap-10 items-center md:items-start pt-2">
-                {/* Interface de Foto (Avatar) */}
-                <div className="flex flex-col items-center gap-4">
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <input type="hidden" name="announcer_photo" value={announcerPhoto || ''} />
-                  
-                  <div 
-                    onClick={handleAvatarSelect}
-                    className="relative w-[150px] h-[150px] rounded-full binary-photo-circle cursor-pointer group"
-                    style={{ 
-                      border: '1px solid #CBA153',
-                      overflow: 'hidden',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backgroundColor: '#1A1A1A'
-                    }}
-                  >
-                    {announcerPhoto ? (
-                      <>
-                        <img src={announcerPhoto} alt="Avatar" className="w-full h-full object-cover" />
-                        {isPhotoUploading && (
-                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                            <Loader2 className="text-[#CBA153] animate-spin" size={24} />
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <p className="text-[10px] text-white uppercase tracking-widest font-bold">Trocar Imagem</p>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center p-4 text-center gap-2">
-                        {isPhotoUploading ? (
-                          <Loader2 className="text-[#CBA153] animate-spin" size={24} />
-                        ) : (
-                          <>
-                            <ImagePlus className="text-[#CBA153]/40" size={32} />
-                            <p className="text-[9px] text-[#CBA153]/60 uppercase tracking-widest leading-relaxed">
-                              click para inserir imagem
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <p className="text-[#CBA153] text-[7.5px] tracking-widest font-medium text-center leading-relaxed">
-                    Opcional.<br />
-                    Foto do rosto ou<br />
-                    logo da empresa
-                  </p>
-
-                  {announcerPhoto && !isPhotoUploading && (
-                    <button 
-                      type="button" 
-                      onClick={handleRemoveAvatar}
-                      className="text-red-500/70 hover:text-red-500 text-[9px] uppercase tracking-widest font-bold transition-colors"
-                    >
-                      Apagar Imagem
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 w-full">
-                  <div className="flex flex-col gap-2">
-                    <label className={labelClass}>Nome do anunciante *</label>
-                    <input 
-                      type="text" 
-                      name="announcer_name" 
-                      defaultValue={adm.announcer_name || profileData.name} 
-                      key={profileData.name}
-                       className={`${inputClass} ${errors.announcer_name ? errorClass : ''}`} 
-                      onAnimationStart={handleAutoFill}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className={labelClass}>E-mail *</label>
-                    <input 
-                      type="email" 
-                      name="announcer_email" 
-                      defaultValue={adm.announcer_email || profileData.email} 
-                      key={profileData.email}
-                       className={`${inputClass} ${errors.announcer_email ? errorClass : ''}`} 
-                      onAnimationStart={handleAutoFill}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className={labelClass}>Telefone WhatsApp *</label>
-                    <input 
-                      type="text" 
-                      name="announcer_whatsapp" 
-                      defaultValue={adm.announcer_whatsapp || profileData.whatsapp} 
-                      key={profileData.whatsapp}
-                      placeholder="(XX) XXXXX-XXXX" 
-                       className={`${inputClass} ${errors.announcer_whatsapp ? errorClass : ''}`} 
-                      onAnimationStart={handleAutoFill}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className={labelClass}>Você é... *</label>
-                    <select 
-                      name="announcer_type" 
-                      value={announcerType} 
-                       onChange={(e) => setAnnouncerType(e.target.value)}
-                      onAnimationStart={handleAutoFill}
-                      className={`${selectClass} ${errors.announcer_type ? errorClass : ''}`}
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="Particular">Particular</option>
-                      <option value="Profissional">Profissional / Corretor(a)</option>
-                    </select>
-                  </div>
-                  
-                  {announcerType === 'Profissional' && (
-                    <div className="flex flex-col gap-2 animate-in fade-in slide-in-from-top-1 duration-300">
-                      <label className={labelClass}>Número do CRECI *</label>
-                      <input 
-                        type="text" 
-                        name="announcer_creci" 
-                        defaultValue={adm.announcer_creci || profileData.creci} 
-                        key={profileData.creci}
-                         className={`${inputClass} ${errors.announcer_creci ? errorClass : ''}`} 
-                        onAnimationStart={handleAutoFill}
-                      />
-                    </div>
-                  )}
-                  
-                  <div className="flex flex-col gap-2">
-                    <label className={labelClass}>Nome da Empresa (Opcional)</label>
-                    <input 
-                      type="text" 
-                      name="announcer_company" 
-                      defaultValue={adm.announcer_company || profileData.company} 
-                      key={profileData.company}
-                      className={inputClass} 
-                      onAnimationStart={handleAutoFill}
-                    />
-                  </div>
-                </div>
+              <div className="flex flex-col gap-2">
+                <label className={announcerLabelClass}>Sua Categoria de Perfil</label>
+                <input 
+                  type="text" 
+                  readOnly
+                  value={profile?.category || 'Não definida'}
+                  className={`${inputClass} ${readOnlyInputClass}`} 
+                />
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <label className={announcerLabelClass}>Número da Licença</label>
+                <input 
+                  type="text" 
+                  name="announcer_creci" 
+                  readOnly
+                  defaultValue={adm.announcer_creci || profile?.professional_license || ''} 
+                  key={profile?.professional_license}
+                  className={`${inputClass} ${readOnlyInputClass}`}
+                />
+              </div>
+              
+              <div className="flex flex-col gap-2">
+                <label className={announcerLabelClass}>Nome da Empresa</label>
+                <input 
+                  type="text" 
+                  name="announcer_company" 
+                  readOnly
+                  defaultValue={adm.announcer_company || profile?.company_name || ''} 
+                  key={profile?.company_name}
+                  className={`${inputClass} ${readOnlyInputClass}`} 
+                />
               </div>
             </div>
-
+            {profileError && (
+              <div id="profile-error-message" className="flex items-start gap-3 text-yellow-400 text-sm mt-2 font-semibold p-4 bg-yellow-900/20 border border-yellow-500/50 rounded-lg">
+                <AlertTriangle size={32} className="flex-shrink-0" />
+                <span>{profileError} Vá para a <Link href="/perfil/editar" className="underline hover:text-yellow-300">página de perfil</Link> para corrigir.</span>
+              </div>
+            )}
           </section>
 
           <div className="mt-12 px-8 py-3 bg-[#1A1A1A] border-2 border-[#CBA153] rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] flex justify-between items-center backdrop-blur-md">
             <p className="text-sm text-gray-400 font-medium tracking-wide italic">
               Certifique-se de que todos os dados obrigatórios foram preenchidos.
             </p>
-            <button 
-              type="submit" 
-              disabled={isSubmitting}
-              className="bg-[#CBA153] text-[#121212] px-16 py-2 rounded-sm font-bold uppercase tracking-[3px] hover:bg-white transition-all text-sm shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3"
-            >
-              {isSubmitting && <Loader2 size={18} className="animate-spin" />}
-              {isEdit ? "Salvar Alterações" : "Salvar Novo Imóvel"}
-            </button>
+            <div className="flex items-center gap-4">
+              <div 
+                className="relative group"
+                title="Salve para publicar quando desejar."
+              >
+                <button 
+                  type="button" 
+                  disabled={isSubmitting || !hasCompleteProfile}
+                  className="flex items-center gap-2 border border-[#CBA153] text-[#CBA153] hover:bg-[#CBA153] hover:text-[#121212] transition-colors text-xs font-bold uppercase tracking-widest px-5 py-2.5 rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting && <Loader2 size={18} className="animate-spin" />}
+                  Salvar e Arquivar
+                </button>
+              </div>
+              <div className="relative group">
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting || !hasCompleteProfile}
+                  className="flex items-center gap-2 bg-[#CBA153] text-[#121212] border border-[#CBA153] px-5 py-2.5 rounded-sm hover:bg-[#121212] hover:text-[#CBA153] transition-all text-xs font-bold uppercase tracking-widest cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSubmitting && <Loader2 size={18} className="animate-spin" />}
+                  {isEdit ? "Salvar Alterações" : "Salvar e Publicar"}
+                </button>
+                {!hasCompleteProfile && (
+                  <div className="absolute bottom-full right-0 mb-2 w-72 bg-black border border-yellow-500/50 text-yellow-400 text-xs rounded-md p-3 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                    Seu perfil está incompleto. É necessário preencher Nome, E-mail e Telefone para poder salvar um imóvel.
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </form>
       </main>
-
-      {/* Modal de Crop para Avatar */}
-      {isCropping && imageToCrop && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm">
-          <div className="bg-[#1A1A1A] border border-[#CBA153]/30 rounded-xl w-full max-w-lg overflow-hidden shadow-2xl">
-            <div className="p-6 border-b border-[#CBA153]/20 flex justify-between items-center">
-              <h3 className="text-[#CBA153] text-sm uppercase tracking-widest font-bold">Ajustar Imagem</h3>
-              <button onClick={handleCancelCrop} className="text-gray-500 hover:text-white transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="relative h-[400px] bg-black">
-              <Cropper
-                image={imageToCrop}
-                crop={crop}
-                zoom={zoom}
-                aspect={1}
-                cropShape="round"
-                showGrid={false}
-                onCropChange={setCrop}
-                onCropComplete={onCropComplete}
-                onZoomChange={setZoom}
-              />
-            </div>
-
-            <div className="p-6 flex flex-col gap-6">
-              <div className="flex flex-col gap-2">
-                <label className="text-gray-500 text-[10px] uppercase tracking-widest font-bold">Zoom</label>
-                <input
-                  type="range"
-                  value={zoom}
-                  min={1}
-                  max={3}
-                  step={0.1}
-                  aria-labelledby="Zoom"
-                  onChange={(e) => setZoom(Number(e.target.value))}
-                  className="w-full accent-[#CBA153]"
-                />
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleCancelCrop}
-                  className="flex-1 px-6 py-3 border border-white/10 rounded-sm text-gray-400 text-[10px] uppercase tracking-widest font-bold hover:bg-white/5 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveCroppedImage}
-                  className="flex-1 px-6 py-3 bg-[#CBA153] text-[#121212] rounded-sm text-[10px] uppercase tracking-widest font-bold hover:bg-white transition-all flex items-center justify-center gap-2"
-                >
-                  <Check size={14} /> Confirmar Ajuste
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

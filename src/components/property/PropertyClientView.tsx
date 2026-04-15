@@ -1,17 +1,15 @@
-import { createClient } from '@/lib/supabase-server'
-import { cookies } from 'next/headers'
-import { notFound } from 'next/navigation'
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
 import { BedDouble, Bath, Car, Maximize, ChevronLeft } from 'lucide-react'
 import { FavoriteButton, ShareButton, StickyMobileBar } from '@/components/property/PropertyClientComponents'
 
-// --- Componente de UI (Servidor) ---
+// --- Componente de UI (Cliente) ---
 const Feature = ({ icon, value, label, unit }: { icon: React.ReactNode, value?: string | number | null, label: string, unit?: string }) => {
   if (value === null || value === undefined) return null
   return (
     <div className="flex flex-col items-center justify-center text-center">
-      {/* ÍCONE DOURADO */}
       <div className="text-[#B8860B]">{icon}</div>
       <p className="text-sm font-bold mt-1.5 text-ivory-white">{value}{unit || ''}</p>
       <p className="text-[10px] text-white/50 uppercase tracking-wider">{label}</p>
@@ -19,39 +17,14 @@ const Feature = ({ icon, value, label, unit }: { icon: React.ReactNode, value?: 
   )
 }
 
-// --- ASSINATURA DA PÁGINA (REGRA 1) ---
-export default async function Page({ 
-  params, 
-  searchParams 
-}: { 
-  params: { slug: string },
-  searchParams: { cover?: string } 
-}) {
+export default function PropertyClientView({ property, profile, cover }: { property: any, profile: any, cover?: string }) {
   
-  // --- LÓGICA DE IMAGEM (REGRA 2) ---
-  const cover = searchParams.cover;
-
-  const cookieStore = cookies()
-  const supabase = createClient(cookieStore)
-
-  // --- QUERIES SEPARADAS (REGRA 3) ---
-  // BUSCA IMÓVEL
-  const { data: property } = await supabase.from('properties').select('*').eq('slug', params.slug).maybeSingle();
-  if (!property) {
-    notFound();
-  }
-
-  // BUSCA PERFIL (APÓS O IMÓVEL)
-  const { data: profile } = await supabase.from('profiles').select('company_name, is_professional, full_name, avatar_url, whatsapp').eq('id', property.user_id).maybeSingle();
-
-  // --- TRATAMENTO DE FALLBACK (REGRA 4) ---
   const company_name = profile?.company_name ?? null;
   const is_professional = profile?.is_professional ?? false;
   const full_name = profile?.full_name ?? "Consultor Imobiliário";
   const avatar_url = profile?.avatar_url ?? '/avatar-placeholder.png';
   const whatsapp = profile?.whatsapp ?? null;
 
-  // --- SLOGANS DINÂMICOS (REGRA 5) ---
   let sloganTitle, sloganText;
   if (is_professional) {
       sloganTitle = 'Consultoria Especializada';
@@ -69,7 +42,6 @@ export default async function Page({
   }
 
   return (
-    // --- DESIGN E ESTÉTICA (REGRA 6) ---
     <div className="bg-[#1A1A1A] text-[#FFFFF0] font-sans pb-20 lg:pb-0">
       <StickyMobileBar whatsappNumber={whatsapp} propertyTitle={property.title} />
 
@@ -85,7 +57,7 @@ export default async function Page({
         </div>
 
         <Image
-          src={cover || '/placeholder.jpg'}
+          src={cover || (property.images && property.images[0]) || '/placeholder.jpg'}
           alt={`Fachada de ${property.title}`}
           fill
           priority
@@ -120,7 +92,6 @@ export default async function Page({
             </div>
 
             <div className="grid grid-cols-4 gap-4 py-6 my-6 border-y border-white/10">
-              {/* ÍCONES 50% MENORES (16px) */}
               <Feature icon={<BedDouble size={16}/>} value={(property.features as any)?.bedrooms} label="Dorms" />
               <Feature icon={<Bath size={16}/>} value={(property.features as any)?.suites} label="Suítes" />
               <Feature icon={<Car size={16}/>} value={(property.features as any)?.parking_spots} label="Vagas" />

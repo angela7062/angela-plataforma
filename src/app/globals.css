@@ -98,3 +98,27 @@ textarea:not(:-webkit-autofill),
 select:not(:-webkit-autofill) {
   animation-name: onAutoFillCancel;
 }
+
+@layer utilities {
+  /* Reduz o padding vertical do container inferior em 20% */
+  .luxury-card > .p-5 {
+    padding-top: 1rem;      /* Original: 1.25rem (p-5) */
+    padding-bottom: 1rem;   /* Original: 1.25rem (p-5) */
+  }
+  /* Reduz a margem abaixo do bloco de preço/localização em 20% */
+  .luxury-card .mb-4 {
+    margin-bottom: 0.8rem;  /* Original: 1rem (mb-4) */
+  }
+  /* Reduz o padding vertical da grade de atributos em 20% */
+  .luxury-card .pt-4 {
+    padding-top: 0.8rem;    /* Original: 1rem (pt-4) */
+  }
+  /* Reduz a margem acima do selo de verificação em 20% */
+  .luxury-card .mt-auto {
+    margin-top: 0.8rem;     /* Original: 1rem (mt-auto) */
+  }
+  /* Reduz o gap interno dos ícones de atributos em 20% */
+  .luxury-card .gap-4 {
+    gap: 0.8rem;            /* Original: 1rem (gap-4) */
+  }
+}
